@@ -25,7 +25,7 @@ In Devices clik `add integration`, search for Ilmateenistus and follow config fl
 
 If the integration does not show up:
 - Check logs for errors 
-- Ensure the integration is installed in `custom_components/prana`
+- Ensure the integration is installed in `custom_components/ilmateenistus`
 - Make sure you restarted HA after integration installation thru HACS
 
 ---
