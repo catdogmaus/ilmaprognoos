@@ -1,0 +1,50 @@
+{
+    "title": "Ilmateenistus",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Vali asukoht",
+                "description": "Vali Ilmateenistuse prognoosi ja vaatluste asukoht.",
+                "data": {
+                    "location": "Asukoht"
+                }
+            },
+            "manual_name": {
+                "title": "Käsitsi sisestamine (1/3): Asukoha nimi",
+                "description": "Sisesta sellele asukohale nimi (nt. Kodu, Suvila, Tartu vanaema). Seda nime kasutatakse Home Assistantis seadme nimeks.",
+                "data": {
+                    "name": "Nimi"
+                }
+            },
+            "manual_coords": {
+                "title": "Käsitsi sisestamine (2/3): Koordinaadid",
+                "description": "Ava ilmateenistus.ee lehekülg, ning asukohapõhise ilmaprognoosi lehelt leia ning ava oma asukoha prognoos. Kopeeri aadressribalt koordinaadid siia. ning jätka seadistusega.",
+                "data": {
+                    "coords": "Koordinaadid"
+                }
+            },
+            "manual_ticker": {
+                "title": "Käsitsi sisestamine (3/3): Hetkeilm",
+                "description": "ilmateenistus.ee lehel liigu Teenused > ilmatikker, ning vali ja ava sobivaim/lähim jaam. Addressribalt kopeerige siia teie jaama number (näit: 30). Jooksva ilma info uuendatakse edaspidi selle jaama järgi.",
+                "data": {
+                    "station_id": "Jaama number"
+                }
+            }
+        },
+        "abort": {
+            "single_instance_allowed": "Ainult üks Ilmateenistuse integratsioon on lubatud."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Uuendamise intervallid",
+                "description": "Määra, kui tihti tuleks andmeid uuendada. Lühem intervall tagab värskemad andmed, kuid teeb rohkem päringuid serverile.",
+                "data": {
+                    "current_interval": "Hetkeilma uuendamise intervall (minutites)",
+                    "forecast_interval": "Ilmaennustuse uuendamise intervall (minutites)"
+                }
+            }
+        }
+    }
+}
