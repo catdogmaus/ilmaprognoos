@@ -1,0 +1,8 @@
+{
+  "name": "Ilmateenistus (Estonian Weather)",
+  "content_in_root": false,
+  "render_readme": false,
+  "codeowners": ["@catdogmaus"],
+  "iot_class": "cloud_polling",
+  "domains": ["ilmateenistus"]
+}
