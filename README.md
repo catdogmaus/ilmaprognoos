@@ -1,7 +1,8 @@
 # ha-estweather
 Estonian weather forecast for Homeassistant
 
-This is a weather forecast that is intended **only** for Estonian weather and will not work for any other country. This integration uses available open data but is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.
+This is a weather forecast that is intended **only** for Estonian weather and will not work for any other country.<br/> 
+**This integration uses available open data but is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.**
 
 Since sharing weather service forecast data with users in ilmateenistus is generally rubbish, it can only be guaranteed to work until things get even worse in terms of proper weather data sharing. 
 
