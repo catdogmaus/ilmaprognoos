@@ -1,19 +1,22 @@
-# ha-estweather
-Estonian weather forecast for Homeassistant
+# Home Assistant Ilmaprognoos (Estonian Weather Forecast) Integration
 
-This is a weather forecast that is intended **only** for Estonian weather and will not work for any other country.<br/> 
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
+
+This is a custom integration for Home Assistant to provide detailed weather information and forecasts from the Estonian national weather service (ilmateenistus.ee). This weather forecast is intended **only** for Estonian weather and will not work for any other country.<br/> 
 **This integration uses available open data but is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.**
 
 Since sharing weather service forecast data with users in ilmateenistus is generally rubbish, it can only be guaranteed to work until things get even worse in terms of proper weather data sharing. 
 
-## Installation via HACS
+## Installation
+
+The easiest way to install this integration is with the [Home Assistant Community Store (HACS)](https://hacs.xyz/).
 
 1. Go to HACS
 2. Click the `⋮` button in corner
 3. Add this repository as a **custom repository** (`https://github.com/catdogmaus/ha-estweather`)
 4. Select "Integration"
 5. Restart Home Assistant
-6. Go **Devices and services** and click **Add Integration**. Search for **Ilmateenistus** and follow configuration flow.
+6. Go **Devices and services** and click **Add Integration**. Search for **Ilmaprognoos** and follow configuration flow.
 
 ## How it works
 Key Features:
