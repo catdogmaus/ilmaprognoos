@@ -1,6 +1,5 @@
 {
   "name": "Ilmaprognoos",
   "render_readme": true
-  "codeowners": ["@catdogmaus"],
-  "iot_class": "cloud_polling",
+
 }
