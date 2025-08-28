@@ -17,10 +17,10 @@ from .const import DOMAIN
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the weather platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([IlmateenistusWeather(coordinator)])
+    async_add_entities([IlmaprognoosWeather(coordinator)])
 
 
-class IlmateenistusWeather(CoordinatorEntity, WeatherEntity):
+class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
     """Representation of a weather entity for Ilmateenistus."""
 
     _attr_has_entity_name = True

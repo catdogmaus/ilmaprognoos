@@ -1,6 +1,6 @@
 {
-  "domain": "ilmateenistus",
-  "name": "Ilmateenistus (Estonian Weather)",
+  "domain": "ilmaprognoos",
+  "name": "Ilmaprognoos (Estonian Weather)",
   "documentation": "https://github.com/catdogmaus/ha-estweather",
   "issue_tracker": "https://github.com/catdogmaus/ha-estweather/issues",
   "codeowners": ["@catdogmaus"],

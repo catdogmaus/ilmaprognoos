@@ -1,5 +1,5 @@
 {
-    "title": "Ilmateenistus",
+    "title": "ilmaprognoos",
     "config": {
         "step": {
             "user": {
@@ -18,21 +18,21 @@
             },
             "manual_coords": {
                 "title": "Käsitsi sisestamine (2/3): Koordinaadid",
-                "description": "Ava ilmateenistus.ee lehekülg, ning asukohapõhise ilmaprognoosi lehel leia ning ava oma asukoha prognoos. Kopeeri aadressribalt koordinaadid siia. ning vajuta OK.",
+                "description": "Ava ilmateenistus.ee lehekülg, ning asukohapõhise ilmaprognoosi lehelt leia ning ava oma asukoha prognoos. Kopeeri aadressribalt koordinaadid siia. ning jätka seadistusega.",
                 "data": {
                     "coords": "Koordinaadid"
                 }
             },
             "manual_ticker": {
-                "title": "Käsitsi sisestamine (3/3): Ilmatikker",
-                "description": "ilmateenistus.ee lehel liigu Teenused > ilmatikker, ning valige ja avage teile lähim jaam. Addressribalt kopeerige siia teie jaama number.",
+                "title": "Käsitsi sisestamine (3/3): Hetkeilm",
+                "description": "ilmateenistus.ee lehel liigu Teenused > ilmatikker, ning vali ja ava sobivaim/lähim jaam. Addressribalt kopeerige siia teie jaama number (näit: 30). Jooksva ilma info uuendatakse edaspidi selle jaama järgi.",
                 "data": {
                     "station_id": "Jaama number"
                 }
             }
         },
         "abort": {
-            "single_instance_allowed": "Ainult üks Ilmateenistuse integratsioon on lubatud."
+            "single_instance_allowed": "Ainult üks ilmaprognoosi integratsioon on lubatud."
         }
     },
     "options": {

@@ -34,7 +34,7 @@ def fetch_data_sync(current_url, forecast_url, headers):
     return current_response.text, forecast_response.json()
 
 
-class IlmateenistusDataUpdateCoordinator(DataUpdateCoordinator):
+class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):

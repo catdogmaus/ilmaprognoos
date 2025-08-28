@@ -9,13 +9,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     sensors = [
-        IlmateenistusWarningsSensor(coordinator),
-        IlmateenistusPrecipitationSensor(coordinator),
+        IlmaprognoosWarningsSensor(coordinator),
+        IlmaprognoosPrecipitationSensor(coordinator),
     ]
     async_add_entities(sensors)
 
 
-class IlmateenistusWarningsSensor(CoordinatorEntity, SensorEntity):
+class IlmaprognoosWarningsSensor(CoordinatorEntity, SensorEntity):
     """Representation of a warnings sensor."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:alert-outline"
@@ -52,7 +52,7 @@ class IlmateenistusWarningsSensor(CoordinatorEntity, SensorEntity):
         }
 
 
-class IlmateenistusPrecipitationSensor(CoordinatorEntity, SensorEntity):
+class IlmaprognoosPrecipitationSensor(CoordinatorEntity, SensorEntity):
     """Representation of a precipitation sensor."""
     _attr_has_entity_name = True
     _attr_native_unit_of_measurement = "mm/h"

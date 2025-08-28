@@ -1,4 +1,4 @@
-# In /custom_components/ilmateenistus/config_flow.py
+# In /custom_components/ilmaprognoos/config_flow.py
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -6,11 +6,11 @@ from homeassistant.helpers import selector
 import logging
 
 from .const import DOMAIN, LOCATIONS, MANUAL_LOCATION_ID, LOGGER
-from .options_flow import IlmateenistusOptionsFlowHandler
+from .options_flow import IlmaprognoosOptionsFlowHandler
 
 _LOGGER = logging.getLogger(__name__)
 
-class IlmateenistusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     
     def __init__(self):
@@ -46,11 +46,8 @@ class IlmateenistusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_manual_ticker(self, user_input=None):
         if user_input is not None:
-            # Get the float value (e.g., 22.0)
             station_id_float = user_input["station_id"]
-            # Convert it to an integer (e.g., 22)
             station_id_int = int(station_id_float)
-            # Then convert the integer to a string (e.g., "22")
             station_id_str = str(station_id_int)
             
             title = self.manual_data["name"]
@@ -58,22 +55,15 @@ class IlmateenistusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "location": MANUAL_LOCATION_ID,
                 "name": self.manual_data["name"],
                 "coords": self.manual_data["coords"],
-                "station_id": station_id_str # Use the corrected string
+                "station_id": station_id_str
             }
             
             _LOGGER.debug(f"[config_flow] Creating manual entry with final_data: {final_data}")
             
             return self.async_create_entry(title=title, data=final_data)
 
-        return self.async_show_form(
-            step_id="manual_ticker", 
-            data_schema=vol.Schema({
-                vol.Required("station_id"): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=999, mode=selector.NumberSelectorMode.BOX)
-                )
-            })
-        )
+        return self.async_show_form(step_id="manual_ticker", data_schema=vol.Schema({vol.Required("station_id"): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=999, mode=selector.NumberSelectorMode.BOX))}))
 
     @staticmethod
     def async_get_options_flow(config_entry):
-        return IlmateenistusOptionsFlowHandler(config_entry)
+        return IlmaprognoosOptionsFlowHandler(config_entry)

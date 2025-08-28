@@ -1,15 +1,13 @@
-# In /custom_components/ilmateenistus/const.py
+# In /custom_components/ilmaprognoos/const.py
 
 import logging
 from datetime import timedelta
 
-DOMAIN = "ilmateenistus"
+DOMAIN = "ilmaprognoos"
 LOGGER = logging.getLogger(__package__)
 
 DEFAULT_CURRENT_INTERVAL = timedelta(minutes=15)
 DEFAULT_FORECAST_INTERVAL = timedelta(minutes=30)
-
-# --- NEW: A constant for the manual entry option in the dropdown ---
 MANUAL_LOCATION_ID = "manual"
 
 LOCATIONS = {
