@@ -1,6 +1,6 @@
 ## About This Integration
-[![GitHub](https://img.shields.io/github/license/catdogmaus/ha-estweather?color=green)](https://github.com/catdogmaus/ha-estweather/blob/main/LICENSE)  
-**Ilmateenistus** allows you to monitor your Estonian local weather in Home Assistant.
+[![GitHub](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE)  
+**Ilmaprognoos** allows you to monitor your Estonian local weather in Home Assistant.
 This integration uses available open data but is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.
 
 **Key Features:**
@@ -19,15 +19,15 @@ This integration uses available open data but is not in any way related to offic
 ### Configuration
 
 This integration uses the config flow UI. No YAML required.
-In Devices clik `add integration`, search for Ilmateenistus and follow config flow.
+In Devices clik `add integration`, search for Ilmaprognoos and follow config flow.
 
 **Having Issues?**
 
 If the integration does not show up:
 - Check logs for errors 
-- Ensure the integration is installed in `custom_components/ilmateenistus`
+- Ensure the integration is installed in `custom_components/ilmaprognoos`
 - Make sure you restarted HA after integration installation thru HACS
 
 ---
 
-For more details, visit the [GitHub repository](https://github.com/catdogmaus/ha-estweather).
+For more details, visit the [GitHub repository](https://github.com/catdogmaus/ilmaprognoos).
