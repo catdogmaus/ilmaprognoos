@@ -38,11 +38,12 @@
     "options": {
         "step": {
             "init": {
-                "title": "Uuendamise intervallid",
-                "description": "Määra, kui tihti tuleks andmeid uuendada. Lühem intervall tagab värskemad andmed, kuid teeb rohkem päringuid serverile.",
+                "title": "Seaded",
+                "description": "Määra, kui tihti tuleks andmeid uuendada ja kuidas ilmahoiatusi kuvatakse.",
                 "data": {
                     "current_interval": "Hetkeilma uuendamise intervall (minutites)",
-                    "forecast_interval": "Ilmaennustuse uuendamise intervall (minutites)"
+                    "forecast_interval": "Ilmaennustuse uuendamise intervall (minutites)",
+                    "warning_override": "Kuva ilmahoiatus hetkeilma ikoonil"
                 }
             }
         }

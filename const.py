@@ -10,6 +10,10 @@ DEFAULT_CURRENT_INTERVAL = timedelta(minutes=15)
 DEFAULT_FORECAST_INTERVAL = timedelta(minutes=30)
 MANUAL_LOCATION_ID = "manual"
 
+# --- NEW: Define the key and default value for the warning override option ---
+CONF_WARNING_OVERRIDE = "warning_override"
+DEFAULT_WARNING_OVERRIDE = True
+
 LOCATIONS = {
     "Tallinn": {"station_id": "14", "coords": "59.432438;24.744066"},
     "Tartu": {"station_id": "15", "coords": "58.380052;26.722116"},
