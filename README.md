@@ -25,7 +25,7 @@ Current weather<br/>
 Daily and Hourly forecast<br/>
 Weather warnings<br/>
 
-The integration creates also an additional weather warnings sensor, which is not currently supported by HA weather. Therefore, the logic of the Forecast frontend is such that if a weather warning for the region comes with the forecast, it overrides the regular forecast. The warning icons and information are visible as long as the warning exists in the initial weather service information. However, this does not affect the temperature, humidity, and overall forecast data. If you like to use more verbose warning data you can use warnings sensor together with conditional card in you dashboard. However this will not affect above described HA weather behavior.
+The integration creates also an additional weather warnings sensor, which is not currently supported by HA weather. Therefore, the logic of the Forecast frontend is such that if a weather warning for the region comes with the forecast, it overrides the regular forecast. The warning icons and information are visible as long as the warning exists in the initial weather service information. However, this does not affect the temperature, humidity, and overall forecast data and there is option in integration settings to turn off this behaviour. If you like to use more verbose warning data you can still use separate warnings sensor together with conditional card in you dashboard.
 
 ## Problems 
 
