@@ -12,7 +12,6 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-# --- Import our new constants ---
 from .const import DOMAIN, CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -34,33 +33,32 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         """Initialize the weather entity."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_weather"
+        # This defines the device for all other entities to link to.
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
             "name": coordinator.config_entry.title,
             "manufacturer": "Ilmaprognoos",
             "entry_type": "service",
+            "model": "Ilmateenistus API",
         }
         self._attr_supported_features = (
             WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY
         )
 
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return "Ilm"
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self._handle_coordinator_update()
 
     @property
+    def name(self):
+        return "Ilm"
+
+    # ... (all other properties and functions remain the same) ...
+    @property
     def condition(self):
-        """Return the current condition, optionally overridden by warnings."""
-        # --- THIS IS THE NEW LOGIC ---
-        # 1. Get the user's preference from the options flow
-        use_warning_override = self.coordinator.config_entry.options.get(
-            CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE
-        )
-        
+        use_warning_override = self.coordinator.config_entry.options.get(CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE)
         warnings = self.coordinator.data.get("warnings", [])
-        
-        # 2. Only override the condition if the user has the option enabled AND there are warnings
         if use_warning_override and warnings:
             warning_type = warnings[0].get("warningEng", "").lower()
             if "thunderstorm" in warning_type: return "lightning-rainy"
@@ -69,42 +67,27 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             if "wind" in warning_type: return "windy"
             if "fog" in warning_type: return "fog"
             return "exceptional"
-
-        # 3. If no override, always return the daily forecast condition
         daily_forecast = self.coordinator.data.get("daily", [])
-        if daily_forecast:
-            return daily_forecast[0].get("condition")
-
+        if daily_forecast: return daily_forecast[0].get("condition")
         return None
-
-    # ... (all other properties and functions like native_temperature, humidity, forecasts, etc., remain exactly the same) ...
     @property
     def native_temperature(self):
         return self.coordinator.data.get("current", {}).get("temperature")
-
     @property
     def native_pressure(self):
         pressure_str = self.coordinator.data.get("current", {}).get("ohurohk", "0 hPa")
-        try:
-            return float(pressure_str.split(" ")[0])
-        except (ValueError, IndexError):
-            return None
-
+        try: return float(pressure_str.split(" ")[0])
+        except (ValueError, IndexError): return None
     @property
     def humidity(self):
         humidity_str = self.coordinator.data.get("current", {}).get("ohuniiskus", "0%")
-        try:
-            return float(humidity_str.replace("%", ""))
-        except ValueError:
-            return None
-            
+        try: return float(humidity_str.replace("%", ""))
+        except ValueError: return None
     @property
     def native_wind_speed(self):
         wind_ms = self.coordinator.data.get("current", {}).get("wind_speed", 0)
-        if wind_ms is not None:
-            return round(wind_ms * 3.6, 1)
+        if wind_ms is not None: return round(wind_ms * 3.6, 1)
         return None
-
     @property
     def wind_bearing(self):
         wind_string = self.coordinator.data.get("current", {}).get("tuul", "")
@@ -112,19 +95,15 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             parts = wind_string.split(" ")
             return " ".join(parts[0:-2])
         return wind_string
-
     async def async_forecast_daily(self) -> list[Forecast] | None:
         daily_data = self.coordinator.data.get("daily")
         if not daily_data: return None
         forecast = []
-        for item in daily_data:
-            forecast.append({"datetime": item.get("datetime"), "native_temperature": item.get("temperature"), "native_templow": item.get("templow"), "condition": item.get("condition"), "native_precipitation_value": item.get("precipitation"),})
+        for item in daily_data: forecast.append({"datetime": item.get("datetime"), "native_temperature": item.get("temperature"), "native_templow": item.get("templow"), "condition": item.get("condition"), "native_precipitation_value": item.get("precipitation"),})
         return forecast
-
     async def async_forecast_hourly(self) -> list[Forecast] | None:
         hourly_data = self.coordinator.data.get("hourly")
         if not hourly_data: return None
         forecast = []
-        for item in hourly_data:
-            forecast.append({"datetime": item.get("datetime"), "native_temperature": item.get("temperature"), "condition": item.get("condition"), "native_precipitation_value": item.get("precipitation"), "native_wind_speed": round(item.get("wind_speed", 0) * 3.6, 1), "wind_bearing": item.get("wind_bearing"), "native_pressure": item.get("pressure"),})
+        for item in hourly_data: forecast.append({"datetime": item.get("datetime"), "native_temperature": item.get("temperature"), "condition": item.get("condition"), "native_precipitation_value": item.get("precipitation"), "native_wind_speed": round(item.get("wind_speed", 0) * 3.6, 1), "wind_bearing": item.get("wind_bearing"), "native_pressure": item.get("pressure"),})
         return forecast

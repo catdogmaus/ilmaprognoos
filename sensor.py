@@ -1,6 +1,11 @@
-# In /custom_components/ilmateenistus/sensor.py
+# In /custom_components/ilmaprognoos/sensor.py
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorDeviceClass,
+    SensorStateClass,
+)
+from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfLength
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -8,73 +13,118 @@ from .const import DOMAIN
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    sensors = [
+    
+    sensors_to_add = [
         IlmaprognoosWarningsSensor(coordinator),
         IlmaprognoosPrecipitationSensor(coordinator),
+        IlmaprognoosTemperatureSensor(coordinator),
+        IlmaprognoosHumiditySensor(coordinator),
     ]
-    async_add_entities(sensors)
+
+    initial_data = coordinator.data.get("current", {})
+    if "veetase" in initial_data:
+        sensors_to_add.append(IlmaprognoosWaterLevelSensor(coordinator))
+    if "veetemp" in initial_data:
+        sensors_to_add.append(IlmaprognoosWaterTempSensor(coordinator))
+
+    async_add_entities(sensors_to_add)
 
 
-class IlmaprognoosWarningsSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a warnings sensor."""
+class IlmaprognoosBaseSensor(CoordinatorEntity, SensorEntity):
+    """Base class for Ilmaprognoos sensors."""
     _attr_has_entity_name = True
-    _attr_icon = "mdi:alert-outline"
 
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        # This links the sensor to the device created by the weather entity.
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
+        }
+
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self._handle_coordinator_update()
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return super().available and self.coordinator.data.get("current") is not None
+
+# ... (rest of the file is unchanged, but included for completeness) ...
+class IlmaprognoosWarningsSensor(IlmaprognoosBaseSensor):
+    _attr_icon = "mdi:alert-outline"
+    _attr_name = "Hoiatused"
     def __init__(self, coordinator):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_warnings"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
-        }
-    
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return "Hoiatused" # Warnings
-
     @property
     def state(self):
-        """Return the state of the sensor."""
         warnings = self.coordinator.data.get("warnings", [])
-        if not warnings:
-            return "Hoiatusi pole" # No warnings
-        
+        if not warnings: return "Hoiatusi pole"
         descriptions = [w.get("description") for w in warnings]
         return "\n".join(descriptions)
-
     @property
     def extra_state_attributes(self):
-        """Return other attributes."""
         warnings = self.coordinator.data.get("warnings", [])
-        return {
-            "warnings_count": len(warnings),
-            "raw_warnings": warnings
-        }
-
-
-class IlmaprognoosPrecipitationSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a precipitation sensor."""
-    _attr_has_entity_name = True
+        return {"warnings_count": len(warnings), "raw_warnings": warnings}
+class IlmaprognoosPrecipitationSensor(IlmaprognoosBaseSensor):
+    _attr_name = "Sademed"
     _attr_native_unit_of_measurement = "mm/h"
     _attr_icon = "mdi:weather-pouring"
-    
+    _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, coordinator):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precipitation"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
-        }
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return "Sademed" # Precipitation
-
     @property
     def native_value(self):
-        """Return the state of the sensor."""
         precip_str = self.coordinator.data.get("current", {}).get("sademed", "0 mm/h")
-        try:
-            return float(precip_str.split(" ")[0])
-        except (ValueError, IndexError):
-            return 0
+        try: return float(precip_str.split(" ")[0])
+        except (ValueError, IndexError): return 0
+class IlmaprognoosTemperatureSensor(IlmaprognoosBaseSensor):
+    _attr_name = "Temperatuur"
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_temperature"
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("current", {}).get("temperature")
+class IlmaprognoosHumiditySensor(IlmaprognoosBaseSensor):
+    _attr_name = "Õhuniiskus"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_device_class = SensorDeviceClass.HUMIDITY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_humidity"
+    @property
+    def native_value(self):
+        humidity_str = self.coordinator.data.get("current", {}).get("ohuniiskus", "0%")
+        try: return float(humidity_str.replace("%", ""))
+        except ValueError: return None
+class IlmaprognoosWaterLevelSensor(IlmaprognoosBaseSensor):
+    _attr_name = "Veetase"
+    _attr_native_unit_of_measurement = UnitOfLength.CENTIMETERS
+    _attr_icon = "mdi:waves-arrow-up"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_water_level"
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("current", {}).get("veetase")
+class IlmaprognoosWaterTempSensor(IlmaprognoosBaseSensor):
+    _attr_name = "Veetemperatuur"
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:thermometer-water"
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_water_temp"
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("current", {}).get("veetemp")
