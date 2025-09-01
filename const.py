@@ -9,7 +9,7 @@ LOGGER = logging.getLogger(__package__)
 DEFAULT_CURRENT_INTERVAL = timedelta(minutes=15)
 DEFAULT_FORECAST_INTERVAL = timedelta(minutes=30)
 MANUAL_LOCATION_ID = "manual"
-
+FORECAST_ONLY_STATION_ID = "0"
 # --- NEW: Define the key and default value for the warning override option ---
 CONF_WARNING_OVERRIDE = "warning_override"
 DEFAULT_WARNING_OVERRIDE = True
