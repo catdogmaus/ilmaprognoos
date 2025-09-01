@@ -21,6 +21,7 @@ LOCATIONS = {
     "Haapsalu": {"station_id": "1", "coords": "58.942082;23.540145"},
     "Narva": {"station_id": "8", "coords": "59.375786;28.196300"},
     "Kihnu": {"station_id": "4", "coords": "58.132441;23.982262"},
+    "Otepää": {"station_id": "34", "coords": "58.057644;26.495801"},
     "Ruhnu": {"station_id": "12", "coords": "57.806423;23.243857"},
     "Valga": {"station_id": "18", "coords": "57.776678;26.030958"},
     "Viljandi": {"station_id": "19", "coords": "58.362936;25.601667"},
@@ -35,4 +36,5 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Language": "en-US,en;q=0.9,et;q=0.8",
     "Referer": "https://www.ilmateenistus.ee/",
+
 }
