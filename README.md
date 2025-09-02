@@ -3,9 +3,9 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
 
 This is a custom integration for Home Assistant to provide detailed weather information and forecasts from the Estonian national weather service (ilmateenistus.ee). This weather forecast is intended **only** for Estonian weather and will not work for any other country.<br/> 
-**This integration uses available open data but is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.**
+This integration uses available open data but **is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.**
 
-Since sharing weather service forecast data with users in ilmateenistus is generally rubbish, it can only be guaranteed to work until things get even worse in terms of proper weather data sharing. 
+Since sharing weather service forecast data with users in ilmateenistus is generally rubbish, it can only be guaranteed to work until things get even worse in terms of proper weather data sharing. So don't keep your hopes too high with this.
 
 ## Installation
 
@@ -25,9 +25,9 @@ Current weather<br/>
 Daily and Hourly forecast<br/>
 Weather warnings<br/>
 
-The integration creates also an additional weather warnings sensor, which is not currently supported by HA weather. Therefore, the logic of the Forecast frontend is such that if a weather warning for the region comes with the forecast, it overrides the regular forecast. The warning icons and information are visible as long as the warning exists in the initial weather service information. However, this does not affect the temperature, humidity, and overall forecast data and there is option in integration settings to turn off this behaviour. If you like to use more verbose warning data you can still use separate warnings sensor together with conditional card in you dashboard.<br/>
+The integration creates also an additional weather warnings sensor, which is not currently supported by HA weather. Therefore, the logic of the Forecast frontend is such that if a weather warning for the region comes with the forecast, it overrides the regular forecast. The warning icons and information are visible as long as the warning exists in the initial weather service information. However, this does not affect the temperature, humidity, and overall forecast data, and there is also option in integration settings to turn off this behaviour. If you like to use more verbose warning data you can always use separate warnings sensor together with conditional card in you dashboard.<br/>
 For some coastal areas, separate sensors for water level and water temperature will be created.<br/>
-By default integration uses 2 different datasources, however in manual setup there is option to revert to only main one. In that case you will lose some data points in the output.
+By default, the integration uses two different data sources, but with manual configuration it is possible to revert to only the main one. In that case you will lose some data points in the output.
 
 ## Problems 
 
