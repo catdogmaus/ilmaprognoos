@@ -51,13 +51,27 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         self._update_interval_from_options()
 
     def _update_interval_from_options(self):
-        current_minutes = self.config_entry.options.get("current_interval", DEFAULT_CURRENT_INTERVAL.seconds // 60)
-        forecast_minutes = self.config_entry.options.get("forecast_interval", DEFAULT_FORECAST_INTERVAL.seconds // 60)
-        final_interval = min(current_minutes, forecast_minutes)
+        """Set the update interval from the config entry options."""
+        forecast_minutes = self.config_entry.options.get(
+            "forecast_interval", DEFAULT_FORECAST_INTERVAL.seconds // 60
+        )
+        
+        # --- THIS IS THE ROBUST FIX ---
+        if self.is_forecast_only:
+            # If we are in forecast-only mode, the update interval is just the forecast interval.
+            final_interval = forecast_minutes
+        else:
+            # Otherwise, use the SHORTER of the two intervals to ensure data freshness.
+            current_minutes = self.config_entry.options.get(
+                "current_interval", DEFAULT_CURRENT_INTERVAL.seconds // 60
+            )
+            final_interval = min(current_minutes, forecast_minutes)
+
         self.update_interval = timedelta(minutes=final_interval)
-        LOGGER.debug(f"Coordinator update interval set to {self.update_interval}")
+        LOGGER.info(f"Coordinator update interval set to {self.update_interval}")
 
     async def async_update_intervals(self):
+        """Update the intervals after an options change and trigger a refresh."""
         self._update_interval_from_options()
         await self.async_request_refresh()
 
@@ -99,25 +113,16 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         first_hour = hourly_forecast[0]
         final_data = current_data.copy()
 
-        fallback_map = {
-            "temperature": "temperature",
-            "sademed": "precipitation",
-            "wind_speed": "wind_speed",
-            "ohurohk": "pressure"
-        }
+        fallback_map = { "temperature": "temperature", "sademed": "precipitation", "wind_speed": "wind_speed", "ohurohk": "pressure" }
 
         for key, forecast_key in fallback_map.items():
             if final_data.get(key) is None or final_data.get(key) == 0:
                 if forecast_key and first_hour.get(forecast_key) is not None:
                     LOGGER.debug(f"Fallback used for '{key}' from forecast.")
-                    if key == "sademed":
-                        final_data[key] = f"{first_hour[forecast_key]} mm/h"
-                    elif key == "ohurohk":
-                        final_data[key] = f"{first_hour[forecast_key]} hPa"
-                    else:
-                        final_data[key] = first_hour[forecast_key]
+                    if key == "sademed": final_data[key] = f"{first_hour[forecast_key]} mm/h"
+                    elif key == "ohurohk": final_data[key] = f"{first_hour[forecast_key]} hPa"
+                    else: final_data[key] = first_hour[forecast_key]
         
-        # --- NEW: Specific fallback for the 'tuul' string ---
         if final_data.get("tuul") is None:
             wind_dir_name = first_hour.get("wind_bearing_name")
             wind_speed_ms = first_hour.get("wind_speed")
@@ -165,12 +170,9 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                         if "temperatuur" in key_clean and "vee" not in key_clean:
                             attributes["temperature"] = float(value.split(' ')[0].replace(',', '.'))
                             attributes[key_clean] = value
-                        elif "veetemp" in key_clean:
-                            attributes["veetemp"] = float(value.split(' ')[0].replace(',', '.'))
-                        elif "veetase" in key_clean:
-                            attributes["veetase"] = int(value.split(' ')[0].replace(',', '.'))
-                        else:
-                            attributes[key_clean] = value
+                        elif "veetemp" in key_clean: attributes["veetemp"] = float(value.split(' ')[0].replace(',', '.'))
+                        elif "veetase" in key_clean: attributes["veetase"] = int(value.split(' ')[0].replace(',', '.'))
+                        else: attributes[key_clean] = value
                     except (ValueError, IndexError):
                         LOGGER.warning(f"Could not parse value for '{key}'. Skipping.")
                         continue
@@ -184,7 +186,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return {}
             
     def _process_daily_forecast(self, api_data):
-        # ... (This function is unchanged) ...
         try:
             hourly_forecasts = api_data.get("forecast", {}).get("tabular", {}).get("time", [])
             if not hourly_forecasts: return []
@@ -209,23 +210,12 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return []
 
     def _process_hourly_forecast(self, api_data):
-        """Process hourly data, now including wind direction name."""
         try:
             hourly_forecasts = api_data.get("forecast", {}).get("tabular", {}).get("time", [])
             if not hourly_forecasts: return []
             final_forecast_list = []
             for hour in hourly_forecasts:
-                forecast_hour = {
-                    "datetime": hour["@attributes"]["from"],
-                    "temperature": float(hour["temperature"]["@attributes"]["value"]),
-                    "condition": self._map_condition(hour["phenomen"]["@attributes"]["et"].lower()),
-                    "precipitation": float(hour["precipitation"]["@attributes"]["value"]),
-                    "wind_speed": float(hour["windSpeed"]["@attributes"]["mps"]),
-                    "wind_bearing": float(hour["windDirection"]["@attributes"]["deg"]),
-                    # --- NEW: Add the wind direction name for our fallback logic ---
-                    "wind_bearing_name": hour["windDirection"]["@attributes"]["name"],
-                    "pressure": float(hour["pressure"]["@attributes"]["value"]),
-                }
+                forecast_hour = {"datetime": hour["@attributes"]["from"], "temperature": float(hour["temperature"]["@attributes"]["value"]), "condition": self._map_condition(hour["phenomen"]["@attributes"]["et"].lower()), "precipitation": float(hour["precipitation"]["@attributes"]["value"]), "wind_speed": float(hour["windSpeed"]["@attributes"]["mps"]), "wind_bearing": float(hour["windDirection"]["@attributes"]["deg"]), "wind_bearing_name": hour["windDirection"]["@attributes"]["name"], "pressure": float(hour["pressure"]["@attributes"]["value"])}
                 final_forecast_list.append(forecast_hour)
             return final_forecast_list
         except Exception as e:
@@ -233,7 +223,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return []
             
     def _process_warnings(self, api_data):
-        # ... (This function is unchanged) ...
         try:
             warnings_string = api_data.get("warnings")
             if not warnings_string or warnings_string == "[]": return []
@@ -252,7 +241,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return []
             
     def _map_condition(self, condition_text):
-        # ... (This function is unchanged) ...
         if "selge" in condition_text: return "sunny"
         if "vähene pilvisus" in condition_text: return "partlycloudy"
         if "pilves selgimistega" in condition_text: return "partlycloudy"
