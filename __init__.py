@@ -3,14 +3,18 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
+from homeassistant.setup import async_setup_component
 
 from .const import DOMAIN
 from .coordinator import IlmaprognoosDataUpdateCoordinator
 
-PLATFORMS = [Platform.WEATHER, Platform.SENSOR]
+PLATFORMS = [Platform.WEATHER, Platform.SENSOR, Platform.BINARY_SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Ilmaprognoos from a config entry."""
+    # --- NEW: Ensure the sun component is loaded ---
+    await async_setup_component(hass, "sun", {})
+
     coordinator = IlmaprognoosDataUpdateCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 

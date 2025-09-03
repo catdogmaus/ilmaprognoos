@@ -47,5 +47,16 @@
                 }
             }
         }
+    },
+    "entity": {
+        "binary_sensor": {
+            "uuendamise_staatus": {
+                "name": "Uuendamise staatus",
+                "state": {
+                    "on": "Viga",
+                    "off": "OK"
+                }
+            }
+        }
     }
 }

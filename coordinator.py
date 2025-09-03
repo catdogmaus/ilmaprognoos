@@ -241,7 +241,10 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return []
             
     def _map_condition(self, condition_text):
-        if "selge" in condition_text: return "sunny"
+        """Map Estonian condition text to a generic Home Assistant condition."""
+        # --- THIS IS THE CHANGE ---
+        if "selge" in condition_text: return "clear" # No longer returns "sunny"
+        
         if "vähene pilvisus" in condition_text: return "partlycloudy"
         if "pilves selgimistega" in condition_text: return "partlycloudy"
         if "vahelduv pilvisus" in condition_text: return "partlycloudy"

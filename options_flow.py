@@ -16,7 +16,10 @@ from .const import (
 class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle an options flow for Ilmaprognoos."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry):
+    # --- THIS IS THE FIX ---
+    # The __init__ method is restored to its correct and required form.
+    # It MUST accept the config_entry to work correctly.
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
 
@@ -25,14 +28,11 @@ class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # --- THIS IS THE NEW DYNAMIC LOGIC ---
-        # 1. Determine if this is a forecast-only setup
         is_forecast_only = False
         if self.config_entry.data.get("location") == MANUAL_LOCATION_ID:
             if self.config_entry.data.get("station_id") == FORECAST_ONLY_STATION_ID:
                 is_forecast_only = True
 
-        # 2. Get current values for all options to pre-fill the form
         forecast_interval = self.config_entry.options.get(
             "forecast_interval", DEFAULT_FORECAST_INTERVAL.seconds // 60
         )
@@ -40,11 +40,9 @@ class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
             CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE
         )
 
-        # 3. Build the form schema based on the setup mode
         schema_fields = {}
 
         if not is_forecast_only:
-            # If we have a current weather source, add its interval option
             current_interval = self.config_entry.options.get(
                 "current_interval", DEFAULT_CURRENT_INTERVAL.seconds // 60
             )
@@ -52,7 +50,6 @@ class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
                 selector.NumberSelectorConfig(min=5, max=1440, step=1, unit_of_measurement="minutes")
             )
 
-        # Add the options that are always present
         schema_fields[vol.Required("forecast_interval", default=forecast_interval)] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=15, max=1440, step=1, unit_of_measurement="minutes")
         )
