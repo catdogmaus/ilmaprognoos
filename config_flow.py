@@ -1,5 +1,3 @@
-# In /custom_components/ilmaprognoos/config_flow.py
-
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import selector
@@ -14,7 +12,7 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Ilmaprognoos."""
 
     VERSION = 1
-    
+
     def __init__(self):
         """Initialize the config flow."""
         self.manual_data = {}
@@ -23,10 +21,10 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step where the user chooses a location type."""
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
-        
+
         options = list(LOCATIONS.keys())
         options.append("Sisestan asukoha käsitsi")
-        
+
         schema = vol.Schema({
             vol.Required("location"): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.DROPDOWN)
@@ -46,9 +44,9 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.manual_data["name"] = user_input["name"]
             return await self.async_step_manual_coords()
-            
+
         return self.async_show_form(
-            step_id="manual_name", 
+            step_id="manual_name",
             data_schema=vol.Schema({
                 vol.Required("name"): selector.TextSelector()
             })
@@ -59,9 +57,9 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.manual_data["coords"] = user_input["coords"]
             return await self.async_step_manual_ticker()
-            
+
         return self.async_show_form(
-            step_id="manual_coords", 
+            step_id="manual_coords",
             data_schema=vol.Schema({
                 vol.Required("coords"): selector.TextSelector()
             })
@@ -73,7 +71,7 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             station_id_float = user_input["station_id"]
             station_id_int = int(station_id_float)
             station_id_str = str(station_id_int)
-            
+
             title = self.manual_data["name"]
             final_data = {
                 "location": MANUAL_LOCATION_ID,
@@ -81,13 +79,13 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "coords": self.manual_data["coords"],
                 "station_id": station_id_str
             }
-            
+
             _LOGGER.debug(f"[config_flow] Creating manual entry with final_data: {final_data}")
-            
+
             return self.async_create_entry(title=title, data=final_data)
 
         return self.async_show_form(
-            step_id="manual_ticker", 
+            step_id="manual_ticker",
             data_schema=vol.Schema({
                 vol.Required("station_id"): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=0, max=999, mode=selector.NumberSelectorMode.BOX)
@@ -98,4 +96,5 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return IlmaprognoosOptionsFlowHandler(config_entry)
+        # Do not pass config_entry here; HA injects it automatically into the options flow.
+        return IlmaprognoosOptionsFlowHandler()

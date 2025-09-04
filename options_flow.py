@@ -1,5 +1,3 @@
-# In /custom_components/ilmaprognoos/options_flow.py
-
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import selector
@@ -16,12 +14,9 @@ from .const import (
 class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle an options flow for Ilmaprognoos."""
 
-    # --- THIS IS THE FIX ---
-    # The __init__ method is restored to its correct and required form.
-    # It MUST accept the config_entry to work correctly.
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
+        # Don't set self.config_entry here — Home Assistant injects it after construction.
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -54,7 +49,7 @@ class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
             selector.NumberSelectorConfig(min=15, max=1440, step=1, unit_of_measurement="minutes")
         )
         schema_fields[vol.Required(CONF_WARNING_OVERRIDE, default=warning_override)] = selector.BooleanSelector()
-        
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema_fields)
