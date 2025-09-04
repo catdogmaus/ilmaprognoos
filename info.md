@@ -1,7 +1,7 @@
 ## About This Integration
 [![GitHub](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE)  
 <span class="badge-buymeacoffee">
-<a href="https://ko-fi.com/catdog58928" title="Donate to this project using Buy Me A Coffee"><img src="https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg" alt="Buy Me A Coffee donate button" /></a>
+<a href="https://ko-fi.com/catdog58928" title="Donate to this project using Ko-Fi"><img src="https://img.shields.io/badge/Buy_me_coffee_and_biscuits-donate-yellow.svg?logo=kofi" alt="Buy Me A Coffee donate button" /></a>
 </span><br/> 
 **Ilmaprognoos** allows you to monitor your Estonian local weather in Home Assistant.
 This integration uses available open data but is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.
