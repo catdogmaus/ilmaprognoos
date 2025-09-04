@@ -24,6 +24,20 @@ This integration uses available open data but is not in any way related to offic
 This integration uses the config flow UI. No YAML required.
 In Devices clik `add integration`, search for Ilmaprognoos and follow config flow.
 
+After configuration, you can use weather warnings override in integration settings or disable it and use verbose sensor independently with conditional card, something like this:
+```
+type: conditional
+conditions:
+  - entity: sensor.yoursensor
+    state_not: No warnings
+card:
+  type: markdown
+  content: |-
+    <ha-alert alert-type="warning" style="display: block;">
+      {{ states('sensor.yoursensor') }}
+    </ha-alert>
+```
+
 **Having Issues?**
 
 If the integration does not show up:
