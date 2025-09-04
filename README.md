@@ -29,7 +29,7 @@ Weather warnings<br/>
 
 The integration creates also an additional weather warnings sensor, which is not currently supported by HA weather. Therefore, the logic of the Forecast frontend is such that if a weather warning for the region comes with the forecast, it overrides the regular forecast. The warning icons and information are visible as long as the warning exists in the initial weather service information. This can get a bit annoying, especially if the warnings last for several days. However, this does not affect the temperature, humidity, and overall forecast data, and there is also option in the integration settings to turn off this behaviour. If you like to use more verbose warning data you can always use separate warnings sensor together with conditional card in you dashboard.<br/>
 For some coastal areas, separate sensors for water level and water temperature will be created.<br/>
-By default, the integration uses two different data sources, but with manual configuration it is possible to revert to only the main one. In that case you will lose some data points in the output.
+By default, the integration uses two different data sources, but with manual configuration it is possible to revert to only the main one. In that case you will lose some datapoints in the output.
 
 ## Problems 
 
