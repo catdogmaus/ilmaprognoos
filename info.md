@@ -29,7 +29,7 @@ After configuration, you can use weather warnings override in integration settin
 type: conditional
 conditions:
   - entity: sensor.yoursensor
-    state_not: No warnings
+    state_not: Hoiatusi pole
 card:
   type: markdown
   content: |-
