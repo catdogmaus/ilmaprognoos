@@ -6,10 +6,11 @@
   "codeowners": ["@catdogmaus"],
   "config_flow": true,
   "iot_class": "cloud_polling",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "requirements": ["beautifulsoup4", "requests"]
 
 }
+
 
 
 
