@@ -31,6 +31,8 @@ The integration creates also an additional weather warnings sensor, which is not
 
 For some coastal areas, separate sensors for water level and water temperature will be created.<br/>
 
+For those who use solar for heat or electricity "Hours of sunshine" sensors in forecast are created. This is **not** official data, but calculated based on an existing forecast. With "clear" and "cloudy" forecast everything is clear, but with "few clouds" and "partly cloudy" things get bit fuzzy. Therefore, it is inevitably an approximate calculation but still useful to get approximate forecast for upcoming solar energy production.
+
 By default, the integration uses two different data sources, but with manual configuration it is possible to revert to only the main one. In that case however, you will lose some datapoints in the output.
 
 ## Problems 
