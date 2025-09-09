@@ -19,7 +19,6 @@ from .const import (
     MANUAL_LOCATION_ID, FORECAST_ONLY_STATION_ID
 )
 
-# ... (fetch_data_sync function is unchanged) ...
 def fetch_data_sync(current_url, forecast_url, headers):
     current_response = requests.get(current_url, headers=headers, timeout=20)
     current_response.raise_for_status()
@@ -28,7 +27,6 @@ def fetch_data_sync(current_url, forecast_url, headers):
     return current_response.text, forecast_response.json()
 
 class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
-    # ... (__init__, _update_interval_from_options, async_update_intervals are unchanged) ...
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.config_entry = entry
         config_data = entry.data
@@ -66,10 +64,8 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         await self.async_request_refresh()
 
     async def _async_update_data(self):
-        """Fetch data and process all derived information."""
         try:
             forecast_json = await self._fetch_json(self.forecast_url)
-            
             current_html = None
             if not self.is_forecast_only:
                 try: current_html = await self._fetch_text(self.current_url)
@@ -92,7 +88,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             LOGGER.error(f"Unexpected error during data update: {err}")
             raise UpdateFailed(f"An unexpected error occurred: {err}")
 
-    # ... (merge, fetch, parse, and daily forecast functions are unchanged) ...
     def _merge_current_with_fallback(self, current_data: dict, hourly_forecast: list) -> dict:
         if not hourly_forecast: return current_data
         first_hour = hourly_forecast[0]
@@ -183,53 +178,27 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as e:
             LOGGER.warning(f"Failed to process daily forecast: {e}")
             return []
-
     def _process_hourly_forecast(self, api_data):
-        """Process hourly data, now preserving the original condition text."""
         try:
             raw_hourly = api_data.get("forecast", {}).get("tabular", {}).get("time", [])
             if not raw_hourly: return []
-            
             final_forecast_list = []
             for hour in raw_hourly:
-                # --- THIS IS THE FIX (PART 1) ---
-                # Preserve the original Estonian text for the sunshine calculation
                 condition_text_et = hour["phenomen"]["@attributes"]["et"]
-                
-                forecast_hour = {
-                    "datetime": hour["@attributes"]["from"],
-                    "temperature": float(hour["temperature"]["@attributes"]["value"]),
-                    "condition": self._map_condition(condition_text_et.lower()),
-                    "condition_text_et": condition_text_et.lower(), # Store the original text
-                    "precipitation": float(hour["precipitation"]["@attributes"]["value"]),
-                    "wind_speed": float(hour["windSpeed"]["@attributes"]["mps"]),
-                    "wind_bearing": float(hour["windDirection"]["@attributes"]["deg"]),
-                    "wind_bearing_name": hour["windDirection"]["@attributes"]["name"],
-                    "pressure": float(hour["pressure"]["@attributes"]["value"]),
-                }
+                forecast_hour = {"datetime": hour["@attributes"]["from"], "temperature": float(hour["temperature"]["@attributes"]["value"]), "condition": self._map_condition(condition_text_et.lower()), "condition_text_et": condition_text_et.lower(), "precipitation": float(hour["precipitation"]["@attributes"]["value"]), "wind_speed": float(hour["windSpeed"]["@attributes"]["mps"]), "wind_bearing": float(hour["windDirection"]["@attributes"]["deg"]), "wind_bearing_name": hour["windDirection"]["@attributes"]["name"], "pressure": float(hour["pressure"]["@attributes"]["value"])}
                 final_forecast_list.append(forecast_hour)
             return final_forecast_list
         except Exception as e:
             LOGGER.warning(f"Failed to process hourly forecast: {e}")
             return []
-
     def _process_sunshine_forecast(self, hourly_forecast: list) -> dict:
         """Process hourly data to calculate daily sunshine hours."""
-        sunshine_map = {
-            # Map based on the original Estonian text
-            "selge": 60,
-            "vähene pilvisus": 45,
-            "pilves selgimistega": 30,
-            "vahelduv pilvisus": 30,
-        }
+        sunshine_map = {"selge": 60, "vähene pilvisus": 45, "pilves selgimistega": 30, "vahelduv pilvisus": 30}
         daily_sunshine_minutes = defaultdict(int)
-        
         for hour in hourly_forecast:
             try:
                 timestamp = dt_util.as_local(datetime.fromisoformat(hour["datetime"]))
                 if is_up(self.hass, timestamp):
-                    # --- THIS IS THE FIX (PART 2) ---
-                    # Use the preserved original text for the calculation
                     condition = hour.get("condition_text_et", "")
                     sun_minutes = sunshine_map.get(condition, 0)
                     if sun_minutes > 0:
@@ -242,14 +211,14 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         day_2 = today + timedelta(days=2)
         day_3 = today + timedelta(days=3)
         
+        # --- THIS IS THE CHANGE ---
         return {
+            "today": round(daily_sunshine_minutes.get(today, 0) / 60, 1),
             "tomorrow": round(daily_sunshine_minutes.get(tomorrow, 0) / 60, 1),
             "day_2": round(daily_sunshine_minutes.get(day_2, 0) / 60, 1),
             "day_3": round(daily_sunshine_minutes.get(day_3, 0) / 60, 1),
         }
-    
     def _process_warnings(self, api_data):
-        # ... (This function is unchanged) ...
         try:
             warnings_string = api_data.get("warnings")
             if not warnings_string or warnings_string == "[]": return []
@@ -266,9 +235,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as e:
             LOGGER.warning(f"Failed to process warnings: {e}")
             return []
-    
     def _map_condition(self, condition_text):
-        # ... (This function is unchanged) ...
         if "selge" in condition_text: return "clear"
         if "vähene pilvisus" in condition_text: return "partlycloudy"
         if "pilves selgimistega" in condition_text: return "partlycloudy"
