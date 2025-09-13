@@ -11,7 +11,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.sun import is_up
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE
+from .const import (
+    DOMAIN, CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE,
+    LOCATIONS, MANUAL_LOCATION_ID
+)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the weather platform."""
@@ -32,16 +35,30 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_weather"
         
-        # --- THIS IS THE UPDATED DEVICE INFORMATION ---
+        # --- THIS IS THE NEW DYNAMIC LINK LOGIC ---
+        config_data = coordinator.config_entry.data
+        coords = None
+        
+        if config_data.get("location") == MANUAL_LOCATION_ID:
+            coords = config_data.get("coords")
+        else:
+            location_name = config_data.get("location")
+            location_info = LOCATIONS.get(location_name, {})
+            coords = location_info.get("coords")
+        
+        # Build the final URL, with a fallback to the main page
+        if coords:
+            config_url = f"https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/?coordinates={coords}"
+        else:
+            config_url = "https://www.ilmateenistus.ee"
+
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
             "name": coordinator.config_entry.title,
             "manufacturer": "Ilmaprognoos",
             "entry_type": "service",
-            # 1. The model text is updated here
             "model": "Keskkonnaagentuur & ilmateenistus.ee",
-            # 2. This key creates the "Visit" link
-            "configuration_url": "https://www.ilmateenistus.ee",
+            "configuration_url": config_url, # Use the dynamic URL we just built
         }
 
         self._attr_supported_features = (WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY)
@@ -50,6 +67,12 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
         self._handle_coordinator_update()
+
+    def _get_sun_aware_condition(self, condition: str, timestamp: datetime) -> str:
+        """Return sunny or clear-night based on sun state at a given time."""
+        if condition == "clear":
+            return "sunny" if is_up(self.hass, timestamp) else "clear-night"
+        return condition
 
     @property
     def name(self): return "Ilm"
@@ -87,12 +110,6 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         if daily_forecast:
             return self._get_sun_aware_condition(daily_forecast[0].get("condition"), dt_util.now())
         return None
-
-    def _get_sun_aware_condition(self, condition: str, timestamp: datetime) -> str:
-        """Return sunny or clear-night based on sun state at a given time."""
-        if condition == "clear":
-            return "sunny" if is_up(self.hass, timestamp) else "clear-night"
-        return condition
 
     @property
     def native_temperature(self): return self.coordinator.data.get("current", {}).get("temperature")
