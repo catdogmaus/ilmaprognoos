@@ -31,19 +31,25 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         """Initialize the weather entity."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_weather"
-        self._attr_device_info = { "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)}, "name": coordinator.config_entry.title, "manufacturer": "Ilmaprognoos", "entry_type": "service", "model": "Ilmateenistus API", }
+        
+        # --- THIS IS THE UPDATED DEVICE INFORMATION ---
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
+            "name": coordinator.config_entry.title,
+            "manufacturer": "Ilmaprognoos",
+            "entry_type": "service",
+            # 1. The model text is updated here
+            "model": "Keskkonnaagentuur & ilmateenistus.ee",
+            # 2. This key creates the "Visit" link
+            "configuration_url": "https://www.ilmateenistus.ee",
+        }
+
         self._attr_supported_features = (WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY)
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
         self._handle_coordinator_update()
-
-    def _get_sun_aware_condition(self, condition: str, timestamp: datetime) -> str:
-        """Return sunny or clear-night based on sun state at a given time."""
-        if condition == "clear":
-            return "sunny" if is_up(self.hass, timestamp) else "clear-night"
-        return condition
 
     @property
     def name(self): return "Ilm"
@@ -53,9 +59,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         """Return the current condition, with a comprehensive warning override."""
         use_warning_override = self.coordinator.config_entry.options.get(CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE)
         warnings = self.coordinator.data.get("warnings", [])
-        
         if use_warning_override and warnings:
-            # --- THIS IS THE EXPANDED LOGIC ---
             warning_type = warnings[0].get("warningEng", "").lower()
             if "thunderstorm" in warning_type: return "lightning-rainy"
             if "rain" in warning_type: return "rainy"
@@ -64,10 +68,8 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             if "sleet" in warning_type or "freezing_rain" in warning_type: return "snowy-rainy"
             if "fog" in warning_type: return "fog"
             if "frost" in warning_type or "cold" in warning_type or "heat" in warning_type: return "exceptional"
-            # Fallback for any other unknown warning type
             return "exceptional"
 
-        # If no override, proceed with the precise hourly/daily logic
         hourly_forecast = self.coordinator.data.get("hourly", [])
         if hourly_forecast:
             now = dt_util.now()
@@ -86,7 +88,12 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             return self._get_sun_aware_condition(daily_forecast[0].get("condition"), dt_util.now())
         return None
 
-    # ... (all other properties and functions remain unchanged) ...
+    def _get_sun_aware_condition(self, condition: str, timestamp: datetime) -> str:
+        """Return sunny or clear-night based on sun state at a given time."""
+        if condition == "clear":
+            return "sunny" if is_up(self.hass, timestamp) else "clear-night"
+        return condition
+
     @property
     def native_temperature(self): return self.coordinator.data.get("current", {}).get("temperature")
     @property
@@ -109,6 +116,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         wind_string = self.coordinator.data.get("current", {}).get("tuul", "")
         if " " in wind_string: return " ".join(wind_string.split(" ")[0:-2])
         return wind_string
+
     async def async_forecast_daily(self) -> list[Forecast] | None:
         daily_data = self.coordinator.data.get("daily")
         if not daily_data: return None
@@ -118,6 +126,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             forecast_time = dt_util.as_local(datetime.combine(forecast_date, datetime.min.time()))
             forecast.append({"datetime": item.get("datetime"), "native_temperature": item.get("temperature"), "native_templow": item.get("templow"), "condition": self._get_sun_aware_condition(item.get("condition"), forecast_time), "native_precipitation_value": item.get("precipitation"),})
         return forecast
+
     async def async_forecast_hourly(self) -> list[Forecast] | None:
         hourly_data = self.coordinator.data.get("hourly")
         if not hourly_data: return None
