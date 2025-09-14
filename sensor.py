@@ -3,7 +3,7 @@
 from homeassistant.components.sensor import (
     SensorEntity, SensorDeviceClass, SensorStateClass
 )
-from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfLength, UnitOfTime
+from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfLength, UnitOfTime, UnitOfPrecipitationDepth
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -28,28 +28,34 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     if coordinator.data.get("sunshine"):
         sensors_to_add.extend([
-            # --- THIS IS THE NEW SENSOR ---
             SunshineTodaySensor(coordinator),
             SunshineTomorrowSensor(coordinator),
             SunshineDay2Sensor(coordinator),
             SunshineDay3Sensor(coordinator),
         ])
 
-    async_add_entities(sensors_to_add)
+    # --- NEW: Add the precipitation forecast sensors ---
+    if coordinator.data.get("precipitation_forecast"):
+        sensors_to_add.extend([
+            PrecipitationTodaySensor(coordinator),
+            PrecipitationTomorrowSensor(coordinator),
+            PrecipitationDay2Sensor(coordinator),
+            PrecipitationDay3Sensor(coordinator),
+        ])
 
+    async_add_entities(sensors_to_add)
 
 class IlmaprognoosBaseSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_device_info = { "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)} }
+        super().__init__(coordinator); self._attr_device_info = { "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)} }
     async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        self._handle_coordinator_update()
+        await super().async_added_to_hass(); self._handle_coordinator_update()
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.data.get("current") is not None
+        return super().available and self.coordinator.data is not None
 
+# ... (Warnings, Current Precipitation, Temperature, Humidity, and Water sensors are unchanged) ...
 class IlmaprognoosWarningsSensor(IlmaprognoosBaseSensor):
     _attr_icon = "mdi:alert-outline"; _attr_name = "Hoiatused"
     def __init__(self, coordinator):
@@ -98,48 +104,79 @@ class IlmaprognoosWaterTempSensor(IlmaprognoosBaseSensor):
         super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_water_temp"
     @property
     def native_value(self): return self.coordinator.data.get("current", {}).get("veetemp")
-
 class IlmaprognoosSunshineSensor(IlmaprognoosBaseSensor):
-    _attr_native_unit_of_measurement = UnitOfTime.HOURS
-    _attr_icon = "mdi:weather-sunny"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS; _attr_icon = "mdi:weather-sunny"; _attr_state_class = SensorStateClass.MEASUREMENT
     @property
     def available(self) -> bool:
         return super().available and self.coordinator.data.get("sunshine") is not None
-
-# --- NEW SENSOR CLASS ---
 class SunshineTodaySensor(IlmaprognoosSunshineSensor):
     _attr_name = "Päikesepaiste täna"
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_today"
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_today"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("sunshine", {}).get("today")
-
+    def native_value(self): return self.coordinator.data.get("sunshine", {}).get("today")
 class SunshineTomorrowSensor(IlmaprognoosSunshineSensor):
     _attr_name = "Päikesepaiste homme"
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_tomorrow"
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_tomorrow"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("sunshine", {}).get("tomorrow")
-
+    def native_value(self): return self.coordinator.data.get("sunshine", {}).get("tomorrow")
 class SunshineDay2Sensor(IlmaprognoosSunshineSensor):
     _attr_name = "Päikesepaiste (päev 2)"
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_day_2"
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_day_2"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("sunshine", {}).get("day_2")
-
+    def native_value(self): return self.coordinator.data.get("sunshine", {}).get("day_2")
 class SunshineDay3Sensor(IlmaprognoosSunshineSensor):
     _attr_name = "Päikesepaiste (päev 3)"
     def __init__(self, coordinator):
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_day_3"
+    @property
+    def native_value(self): return self.coordinator.data.get("sunshine", {}).get("day_3")
+
+# --- NEW PRECIPITATION FORECAST SENSOR CLASSES ---
+
+class IlmaprognoosPrecipitationForecastSensor(IlmaprognoosBaseSensor):
+    """Base class for Precipitation Forecast sensors."""
+    _attr_native_unit_of_measurement = UnitOfPrecipitationDepth.MILLIMETERS
+    _attr_icon = "mdi:water-percent"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data.get("precipitation_forecast") is not None
+
+class PrecipitationTodaySensor(IlmaprognoosPrecipitationForecastSensor):
+    _attr_name = "Sademed täna"
+    def __init__(self, coordinator):
         super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_day_3"
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_today"
     @property
     def native_value(self):
-        return self.coordinator.data.get("sunshine", {}).get("day_3")
+        return self.coordinator.data.get("precipitation_forecast", {}).get("today")
+
+class PrecipitationTomorrowSensor(IlmaprognoosPrecipitationForecastSensor):
+    _attr_name = "Sademed homme"
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_tomorrow"
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("precipitation_forecast", {}).get("tomorrow")
+
+class PrecipitationDay2Sensor(IlmaprognoosPrecipitationForecastSensor):
+    _attr_name = "Sademed (päev 2)"
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_day_2"
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("precipitation_forecast", {}).get("day_2")
+
+class PrecipitationDay3Sensor(IlmaprognoosPrecipitationForecastSensor):
+    _attr_name = "Sademed (päev 3)"
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_day_3"
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("precipitation_forecast", {}).get("day_3")
