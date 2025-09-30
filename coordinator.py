@@ -28,18 +28,44 @@ def fetch_data_sync(current_url, forecast_url, headers):
     return current_response.text, forecast_response.json()
 
 class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
-    # ... (__init__, _update_interval_from_options, async_update_intervals are unchanged) ...
+    """Class to manage fetching data from the API."""
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
-        self.config_entry = entry; config_data = entry.data; self.is_forecast_only = False; station_id = None
+        """Initialize."""
+        self.config_entry = entry
+        config_data = entry.data
+        self.is_forecast_only = False
+        station_id = None
+        
         if config_data.get("location") == MANUAL_LOCATION_ID:
-            station_id = config_data.get("station_id"); coords = config_data.get("coords"); self.location_name = entry.title 
+            station_id = config_data.get("station_id")
+            coords = config_data.get("coords")
+            self.location_name = entry.title 
         else:
-            self.location_name = config_data.get("location"); location_data = LOCATIONS.get(self.location_name, {}); station_id = location_data.get("station_id"); coords = location_data.get("coords")
+            self.location_name = config_data.get("location")
+            location_data = LOCATIONS.get(self.location_name, {})
+            station_id = location_data.get("station_id")
+            coords = location_data.get("coords")
+
         if station_id == FORECAST_ONLY_STATION_ID:
-            self.is_forecast_only = True; self.current_url = None; LOGGER.info("Operating in forecast-only mode.")
+            self.is_forecast_only = True
+            self.current_url = None
+            LOGGER.info("Operating in forecast-only mode.")
         else:
             self.current_url = TICKER_URL_FORMAT.format(station_id=station_id)
-        self.forecast_url = FORECAST_URL_FORMAT.format(coords=coords); super().__init__(hass, LOGGER, name=DOMAIN); self._update_interval_from_options()
+        
+        self.forecast_url = FORECAST_URL_FORMAT.format(coords=coords)
+        
+        # --- THIS IS THE FIX ---
+        # Get the clean slug that we saved in the config flow.
+        slug = config_data.get("slug")
+        # Construct the stable, clean entity_id for the main weather entity.
+        self.weather_entity_id = f"weather.{slug}_ilm"
+        
+        super().__init__(hass, LOGGER, name=DOMAIN)
+        self._update_interval_from_options()
+
+    # ... (_update_interval_from_options and async_update_intervals are unchanged) ...
     def _update_interval_from_options(self):
         forecast_minutes = self.config_entry.options.get("forecast_interval", DEFAULT_FORECAST_INTERVAL.seconds // 60)
         if self.is_forecast_only: final_interval = forecast_minutes
@@ -51,7 +77,12 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         self._update_interval_from_options(); await self.async_request_refresh()
 
     async def _async_update_data(self):
-        """Fetch data and process all derived information."""
+        """Fetch data and fire logbook events linked to the main weather entity."""
+        last_success_time = getattr(self, "last_update_success_timestamp", None)
+        if self.last_update_success and last_success_time and (dt_util.utcnow() - last_success_time < timedelta(seconds=60)):
+            LOGGER.warning("Update requested too soon after the last one. Skipping to prevent update flood.")
+            return self.data
+
         try:
             forecast_json = await self._fetch_json(self.forecast_url)
             current_html = None
@@ -63,9 +94,14 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             current_data = self._parse_current(current_html) if current_html else {}
             final_current_data = self._merge_current_with_fallback(current_data, hourly_forecast)
             sunshine_forecast = self._process_sunshine_forecast(hourly_forecast)
-            
-            # --- NEW: Calculate precipitation forecast ---
             precipitation_forecast = self._process_precipitation_forecast(hourly_forecast)
+
+            # --- LOGBOOK EVENT FIX ---
+            self.hass.bus.async_fire("logbook_entry", {
+                "message": "Uuendamine õnnestus",
+                "entity_id": self.weather_entity_id, # Link to the main weather entity
+                "domain": DOMAIN,
+            })
 
             return {
                 "current": final_current_data,
@@ -74,13 +110,19 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 "warnings": self._process_warnings(forecast_json),
                 "location": self.location_name,
                 "sunshine": sunshine_forecast,
-                "precipitation_forecast": precipitation_forecast # Add new data to payload
+                "precipitation_forecast": precipitation_forecast
             }
         except Exception as err:
+            # --- LOGBOOK EVENT FIX ---
+            self.hass.bus.async_fire("logbook_entry", {
+                "message": f"Uuendamine ebaõnnestus: {err}",
+                "entity_id": self.weather_entity_id, # Link to the main weather entity
+                "domain": DOMAIN,
+            })
             LOGGER.error(f"Unexpected error during data update: {err}")
             raise UpdateFailed(f"An unexpected error occurred: {err}")
 
-    # ... (merge, fetch, parse, and other process functions remain the same) ...
+    # ... (all other helper functions remain the same) ...
     def _merge_current_with_fallback(self, current_data: dict, hourly_forecast: list) -> dict:
         if not hourly_forecast: return current_data
         first_hour = hourly_forecast[0]; final_data = current_data.copy()
@@ -177,32 +219,16 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             except (ValueError, KeyError): continue
         today = dt_util.now().date(); tomorrow = today + timedelta(days=1); day_2 = today + timedelta(days=2); day_3 = today + timedelta(days=3)
         return {"today": round(daily_sunshine_minutes.get(today, 0) / 60, 1), "tomorrow": round(daily_sunshine_minutes.get(tomorrow, 0) / 60, 1), "day_2": round(daily_sunshine_minutes.get(day_2, 0) / 60, 1), "day_3": round(daily_sunshine_minutes.get(day_3, 0) / 60, 1)}
-    
-    # --- NEW FUNCTION TO CALCULATE PRECIPITATION FORECAST ---
     def _process_precipitation_forecast(self, hourly_forecast: list) -> dict:
-        """Process hourly data to calculate daily precipitation sums."""
         daily_precipitation_mm = defaultdict(float)
-        
         for hour in hourly_forecast:
             try:
                 timestamp = dt_util.as_local(datetime.fromisoformat(hour["datetime"]))
                 precipitation = hour.get("precipitation", 0.0)
                 daily_precipitation_mm[timestamp.date()] += precipitation
-            except (ValueError, KeyError):
-                continue
-        
-        today = dt_util.now().date()
-        tomorrow = today + timedelta(days=1)
-        day_2 = today + timedelta(days=2)
-        day_3 = today + timedelta(days=3)
-        
-        return {
-            "today": round(daily_precipitation_mm.get(today, 0.0), 1),
-            "tomorrow": round(daily_precipitation_mm.get(tomorrow, 0.0), 1),
-            "day_2": round(daily_precipitation_mm.get(day_2, 0.0), 1),
-            "day_3": round(daily_precipitation_mm.get(day_3, 0.0), 1),
-        }
-
+            except (ValueError, KeyError): continue
+        today = dt_util.now().date(); tomorrow = today + timedelta(days=1); day_2 = today + timedelta(days=2); day_3 = today + timedelta(days=3)
+        return {"today": round(daily_precipitation_mm.get(today, 0.0), 1), "tomorrow": round(daily_precipitation_mm.get(tomorrow, 0.0), 1), "day_2": round(daily_precipitation_mm.get(day_2, 0.0), 1), "day_3": round(daily_precipitation_mm.get(day_3, 0.0), 1)}
     def _process_warnings(self, api_data):
         try:
             warnings_string = api_data.get("warnings")
