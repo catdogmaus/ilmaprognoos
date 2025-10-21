@@ -4,7 +4,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)<br/>
 
 <span class="badge-buymeacoffee">
-<a href="https://ko-fi.com/catdog58928" title="Donate to this project using Ko-Fi"><img src="https://img.shields.io/badge/Buy_me_coffee_and_biscuits-donate-yellow.svg?logo=kofi" alt="Buy Me A Coffee donate button" /></a>
+<a href="https://ko-fi.com/catdog58928" title="Donate to this project using Ko-Fi"><img src="https://img.shields.io/badge/Buy_me_coffee_and_biscuits-donate-yellow.svg?style=for-the-badge&logo=kofi" alt="Buy Me A Coffee donate button" /></a>
 </span><br/> 
 
 This is a custom integration for Home Assistant to provide detailed weather information and forecasts from the Estonian national weather service (ilmateenistus.ee). This weather forecast is intended **only** for Estonian weather and will not work for any other country.<br/> 
