@@ -34,7 +34,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
             SunshineDay3Sensor(coordinator),
         ])
 
-    # --- NEW: Add the precipitation forecast sensors ---
     if coordinator.data.get("precipitation_forecast"):
         sensors_to_add.extend([
             PrecipitationTodaySensor(coordinator),
@@ -44,6 +43,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         ])
 
     async_add_entities(sensors_to_add)
+
 
 class IlmaprognoosBaseSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
@@ -55,19 +55,61 @@ class IlmaprognoosBaseSensor(CoordinatorEntity, SensorEntity):
     def available(self) -> bool:
         return super().available and self.coordinator.data is not None
 
-# ... (Warnings, Current Precipitation, Temperature, Humidity, and Water sensors are unchanged) ...
+
 class IlmaprognoosWarningsSensor(IlmaprognoosBaseSensor):
     _attr_icon = "mdi:alert-outline"; _attr_name = "Hoiatused"
     def __init__(self, coordinator):
         super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_warnings"
+    
     @property
     def state(self):
-        warnings = self.coordinator.data.get("warnings", []);
-        if not warnings: return "Hoiatusi pole"
-        return "\n".join([w.get("description") for w in warnings])
+        """Return an intelligent summary of the warnings, respecting the 255-char limit."""
+        warnings = self.coordinator.data.get("warnings", [])
+        if not warnings: 
+            return "Hoiatusi pole"
+        
+        # --- THIS IS THE NEW, INTELLIGENT LOGIC ---
+        descriptions = [w.get("description") for w in warnings if w.get("description")]
+        if not descriptions:
+            return "Tundmatu hoiatus"
+            
+        full_text = "\n".join(descriptions)
+        
+        # Case 1: The full text is short enough to be the state.
+        if len(full_text) <= 255:
+            return full_text
+            
+        # Case 2: The full text is too long. We must truncate smartly.
+        else:
+            first_warning = descriptions[0]
+            remaining_count = len(descriptions) - 1
+            
+            # Create the summary suffix
+            if remaining_count == 1:
+                suffix = "\n\n... ja veel 1 hoiatus."
+            else:
+                suffix = f"\n\n... ja veel {remaining_count} hoiatust."
+
+            # Check if even the first warning plus the suffix is too long
+            if len(first_warning) + len(suffix) > 255:
+                # Truncate the first warning to make space
+                truncate_at = 255 - len(suffix) - 3 # -3 for "..."
+                first_warning = first_warning[:truncate_at] + "..."
+            
+            return f"{first_warning}{suffix}"
+
     @property
     def extra_state_attributes(self):
-        warnings = self.coordinator.data.get("warnings", []); return {"warnings_count": len(warnings), "raw_warnings": warnings}
+        """Return other attributes, including the full, untruncated descriptions."""
+        warnings = self.coordinator.data.get("warnings", [])
+        descriptions = [w.get("description") for w in warnings if w.get("description")]
+        return {
+            "descriptions": "\n".join(descriptions), # The full text lives here
+            "warnings_count": len(descriptions),
+            "raw_warnings": warnings
+        }
+
+# ... (all other sensor classes remain unchanged) ...
 class IlmaprognoosPrecipitationSensor(IlmaprognoosBaseSensor):
     _attr_name = "Sademed"; _attr_native_unit_of_measurement = "mm/h"; _attr_icon = "mdi:weather-pouring"; _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, coordinator):
@@ -133,50 +175,32 @@ class SunshineDay3Sensor(IlmaprognoosSunshineSensor):
         super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_sunshine_day_3"
     @property
     def native_value(self): return self.coordinator.data.get("sunshine", {}).get("day_3")
-
-# --- NEW PRECIPITATION FORECAST SENSOR CLASSES ---
-
 class IlmaprognoosPrecipitationForecastSensor(IlmaprognoosBaseSensor):
-    """Base class for Precipitation Forecast sensors."""
-    _attr_native_unit_of_measurement = UnitOfPrecipitationDepth.MILLIMETERS
-    _attr_icon = "mdi:water-percent"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfPrecipitationDepth.MILLIMETERS; _attr_icon = "mdi:water-percent"; _attr_state_class = SensorStateClass.MEASUREMENT
     @property
     def available(self) -> bool:
         return super().available and self.coordinator.data.get("precipitation_forecast") is not None
-
 class PrecipitationTodaySensor(IlmaprognoosPrecipitationForecastSensor):
     _attr_name = "Sademed täna"
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_today"
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_today"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("precipitation_forecast", {}).get("today")
-
+    def native_value(self): return self.coordinator.data.get("precipitation_forecast", {}).get("today")
 class PrecipitationTomorrowSensor(IlmaprognoosPrecipitationForecastSensor):
     _attr_name = "Sademed homme"
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_tomorrow"
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_tomorrow"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("precipitation_forecast", {}).get("tomorrow")
-
+    def native_value(self): return self.coordinator.data.get("precipitation_forecast", {}).get("tomorrow")
 class PrecipitationDay2Sensor(IlmaprognoosPrecipitationForecastSensor):
     _attr_name = "Sademed (päev 2)"
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_day_2"
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_day_2"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("precipitation_forecast", {}).get("day_2")
-
+    def native_value(self): return self.coordinator.data.get("precipitation_forecast", {}).get("day_2")
 class PrecipitationDay3Sensor(IlmaprognoosPrecipitationForecastSensor):
     _attr_name = "Sademed (päev 3)"
     def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_day_3"
+        super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_precip_day_3"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("precipitation_forecast", {}).get("day_3")
+    def native_value(self): return self.coordinator.data.get("precipitation_forecast", {}).get("day_3")
