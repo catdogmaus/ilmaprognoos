@@ -10,7 +10,6 @@
 This is a custom integration for Home Assistant to provide detailed weather information and forecasts from the Estonian national weather service (ilmateenistus.ee). This weather forecast is intended **only** for Estonian weather and will not work for any other country.<br/> 
 This integration uses available open data but **is not in any way related to official Keskkonnaagentuur or ilmateenistus.ee services.**
 
-Since sharing weather service forecast data with users in ilmateenistus is generally rubbish, it can only be guaranteed to work until things get even worse in terms of proper weather data sharing. So don't keep your hopes too high with this.
 
 ## Installation
 
@@ -49,9 +48,9 @@ card:
 
 **For those who use solar** for heat or electricity "Hours of sunshine" sensors in forecast are created. This is **not** official data, but calculated based on an existing forecast. With "clear" and "cloudy" forecast everything is simpel, but with "few clouds" and "partly cloudy" things get bit fuzzy. Therefore, it is inevitably an approximate calculation but still useful to get approximate forecast for upcoming solar energy production.
 
-By default, the integration uses two different data sources, but with manual configuration it is possible to revert to only the main one. In that case however, you will lose some datapoints in the output.
+Overall what exact weather sensors you get depends where you live so by default, the integration uses two different data sources, but with manual configuration it is possible to revert to only the main one. In that case however, you will lose some datapoints in the output.
 
 ## Problems 
 
 As far as I know none!<br/>
-Dont ask for more datapoints.   It is possible only to give data that is initially available.
+Dont ask for more sensors.   It is possible only to give data that is initially available.
