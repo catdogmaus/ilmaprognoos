@@ -2,7 +2,9 @@
 
 from datetime import datetime
 from homeassistant.components.weather import (
-    WeatherEntity, WeatherEntityFeature, Forecast
+    WeatherEntity,
+    WeatherEntityFeature,
+    Forecast,
 )
 from homeassistant.const import (
     UnitOfPressure, UnitOfSpeed, UnitOfTemperature
@@ -11,10 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.sun import is_up
 from homeassistant.util import dt as dt_util
 
-from .const import (
-    DOMAIN, CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE,
-    LOCATIONS, MANUAL_LOCATION_ID
-)
+from .const import DOMAIN, CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the weather platform."""
@@ -35,18 +34,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_weather"
         
-        # --- THIS IS THE NEW DYNAMIC LINK LOGIC ---
-        config_data = coordinator.config_entry.data
-        coords = None
-        
-        if config_data.get("location") == MANUAL_LOCATION_ID:
-            coords = config_data.get("coords")
-        else:
-            location_name = config_data.get("location")
-            location_info = LOCATIONS.get(location_name, {})
-            coords = location_info.get("coords")
-        
-        # Build the final URL, with a fallback to the main page
+        coords = coordinator.config_entry.data.get("coords")
         if coords:
             config_url = f"https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/?coordinates={coords}"
         else:
@@ -58,7 +46,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             "manufacturer": "Ilmaprognoos",
             "entry_type": "service",
             "model": "Keskkonnaagentuur & ilmateenistus.ee",
-            "configuration_url": config_url, # Use the dynamic URL we just built
+            "configuration_url": config_url,
         }
 
         self._attr_supported_features = (WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY)
@@ -73,27 +61,55 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         if condition == "clear":
             return "sunny" if is_up(self.hass, timestamp) else "clear-night"
         return condition
+        
+    def _map_xml_condition(self, condition_text):
+        """Map the English phenomenon string from XML to HA condition."""
+        cond = condition_text.lower()
+        if "clear" in cond: return "clear"
+        if "few clouds" in cond or "variable clouds" in cond or "cloudy with clear spells" in cond: return "partlycloudy"
+        if "overcast" in cond: return "cloudy"
+        if "snow" in cond or "snowfall" in cond: return "snowy"
+        if "shower" in cond and "snow" not in cond: return "pouring" if "heavy" in cond else "rainy"
+        if "rain" in cond: return "pouring" if "heavy" in cond else "rainy"
+        if "glaze" in cond or "sleet" in cond: return "snowy-rainy"
+        if "hail" in cond: return "hail"
+        if "mist" in cond or "fog" in cond: return "fog"
+        return "cloudy"
 
     @property
-    def name(self): return "Ilm"
+    def name(self): 
+        return "Ilm"
 
     @property
     def condition(self):
-        """Return the current condition, with a comprehensive warning override."""
+        """Return the current condition, with intelligent prioritized warning override."""
         use_warning_override = self.coordinator.config_entry.options.get(CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE)
-        warnings = self.coordinator.data.get("warnings", [])
+        warnings = self.coordinator.data.get("warnings",[])
+        
         if use_warning_override and warnings:
-            warning_type = warnings[0].get("warningEng", "").lower()
-            if "thunderstorm" in warning_type: return "lightning-rainy"
-            if "rain" in warning_type: return "rainy"
-            if "wind" in warning_type: return "windy"
-            if "snow" in warning_type or "blizzard" in warning_type: return "snowy"
-            if "sleet" in warning_type or "freezing_rain" in warning_type: return "snowy-rainy"
-            if "fog" in warning_type: return "fog"
-            if "frost" in warning_type or "cold" in warning_type or "heat" in warning_type: return "exceptional"
-            return "exceptional"
+            for w in warnings:
+                if "thunderstorm" in w.get("warningEng", "").lower(): return "lightning-rainy"
+            for w in warnings:
+                w_type = w.get("warningEng", "").lower()
+                if "snow" in w_type or "blizzard" in w_type: return "snowy"
+                if "sleet" in w_type or "freezing_rain" in w_type: return "snowy-rainy"
+            for w in warnings:
+                w_type = w.get("warningEng", "").lower()
+                if "rain" in w_type: return "rainy"
+                if "wind" in w_type: return "windy"
+                if "fog" in w_type: return "fog"
+            
+            # --- FIX: Removed the "exceptional" fallback here! ---
+            # If the warning doesn't match an icon above, it ignores the warning 
+            # and proceeds to check actual weather conditions below.
 
-        hourly_forecast = self.coordinator.data.get("hourly", [])
+        # Check Current XML condition first if available
+        current_phenomenon = self.coordinator.data.get("current", {}).get("phenomenon")
+        if current_phenomenon:
+            mapped_condition = self._map_xml_condition(current_phenomenon)
+            return self._get_sun_aware_condition(mapped_condition, dt_util.now())
+
+        hourly_forecast = self.coordinator.data.get("hourly",[])
         if hourly_forecast:
             now = dt_util.now()
             for hour in hourly_forecast:
@@ -106,49 +122,98 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
                 last_forecast_time = dt_util.as_local(datetime.fromisoformat(hourly_forecast[-1]["datetime"]))
                 return self._get_sun_aware_condition(hourly_forecast[-1].get("condition"), last_forecast_time)
 
-        daily_forecast = self.coordinator.data.get("daily", [])
+        daily_forecast = self.coordinator.data.get("daily",[])
         if daily_forecast:
             return self._get_sun_aware_condition(daily_forecast[0].get("condition"), dt_util.now())
+        
         return None
 
     @property
-    def native_temperature(self): return self.coordinator.data.get("current", {}).get("temperature")
+    def native_temperature(self): 
+        return self.coordinator.data.get("current", {}).get("temperature")
+    
     @property
     def native_pressure(self):
-        pressure_str = self.coordinator.data.get("current", {}).get("ohurohk", "0 hPa")
-        try: return float(pressure_str.split(" ")[0])
+        val = self.coordinator.data.get("current", {}).get("ohurohk")
+        if val is None: return None
+        if isinstance(val, (int, float)): return float(val)
+        try: return float(str(val).split(" ")[0])
         except (ValueError, IndexError): return None
+        
     @property
     def humidity(self):
-        humidity_str = self.coordinator.data.get("current", {}).get("ohuniiskus", "0%")
-        try: return float(humidity_str.replace("%", ""))
+        val = self.coordinator.data.get("current", {}).get("ohuniiskus")
+        if val is None: return None
+        if isinstance(val, (int, float)): return float(val)
+        try: return float(str(val).replace("%", ""))
         except ValueError: return None
+        
     @property
     def native_wind_speed(self):
-        wind_ms = self.coordinator.data.get("current", {}).get("wind_speed", 0)
-        if wind_ms is not None: return round(wind_ms * 3.6, 1)
+        wind_ms = self.coordinator.data.get("current", {}).get("wind_speed")
+        if wind_ms is not None: 
+            try: return round(float(wind_ms) * 3.6, 1)
+            except ValueError: return None
         return None
+        
     @property
     def wind_bearing(self):
+        wb = self.coordinator.data.get("current", {}).get("wind_bearing")
+        if isinstance(wb, (int, float)): return wb
         wind_string = self.coordinator.data.get("current", {}).get("tuul", "")
-        if " " in wind_string: return " ".join(wind_string.split(" ")[0:-2])
+        if isinstance(wind_string, str) and " " in wind_string: 
+            return " ".join(wind_string.split(" ")[0:-2])
         return wind_string
 
     async def async_forecast_daily(self) -> list[Forecast] | None:
         daily_data = self.coordinator.data.get("daily")
         if not daily_data: return None
-        forecast = []
+        
+        result_list = list()
         for item in daily_data:
-            forecast_date = dt_util.parse_date(item.get("datetime"))
-            forecast_time = dt_util.as_local(datetime.combine(forecast_date, datetime.min.time()))
-            forecast.append({"datetime": item.get("datetime"), "native_temperature": item.get("temperature"), "native_templow": item.get("templow"), "condition": self._get_sun_aware_condition(item.get("condition"), forecast_time), "native_precipitation_value": item.get("precipitation"),})
-        return forecast
+            try:
+                forecast_date = dt_util.parse_date(item.get("datetime"))
+                if not forecast_date: continue
+                forecast_time = dt_util.as_local(datetime.combine(forecast_date, datetime.min.time()))
+                
+                day_data = dict()
+                day_data["datetime"] = item.get("datetime")
+                day_data["native_temperature"] = item.get("temperature")
+                day_data["native_templow"] = item.get("templow")
+                day_data["condition"] = self._get_sun_aware_condition(item.get("condition"), forecast_time)
+                day_data["native_precipitation_value"] = item.get("precipitation")
+                
+                result_list.append(day_data)
+            except Exception:
+                continue
+        return result_list
 
     async def async_forecast_hourly(self) -> list[Forecast] | None:
         hourly_data = self.coordinator.data.get("hourly")
-        if not hourly_data: return None
-        forecast = []
+        if not hourly_data:
+            return None
+            
+        result_list = list()
+        
         for item in hourly_data:
-            forecast_time = dt_util.as_local(datetime.fromisoformat(item.get("datetime")))
-            forecast.append({"datetime": item.get("datetime"), "native_temperature": item.get("temperature"), "condition": self._get_sun_aware_condition(item.get("condition"), forecast_time), "native_precipitation_value": item.get("precipitation"), "native_wind_speed": round(item.get("wind_speed", 0) * 3.6, 1), "wind_bearing": item.get("wind_bearing"), "native_pressure": item.get("pressure"),})
-        return forecast
+            try:
+                dt_str = item.get("datetime")
+                if not dt_str:
+                    continue
+                    
+                f_time = dt_util.as_local(datetime.fromisoformat(dt_str))
+                
+                hour_data = dict()
+                hour_data["datetime"] = dt_str
+                hour_data["native_temperature"] = item.get("temperature")
+                hour_data["condition"] = self._get_sun_aware_condition(item.get("condition"), f_time)
+                hour_data["native_precipitation_value"] = item.get("precipitation")
+                hour_data["native_wind_speed"] = item.get("wind_speed")
+                hour_data["wind_bearing"] = item.get("wind_bearing")
+                hour_data["native_pressure"] = item.get("pressure")
+                
+                result_list.append(hour_data)
+            except Exception:
+                continue
+                
+        return result_list
