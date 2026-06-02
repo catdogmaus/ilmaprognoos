@@ -1,7 +1,7 @@
 # Home Assistant Ilmaprognoos (Estonian Weather Forecast) Integration
 
 [![GitHub](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE)  [![](https://img.shields.io/github/release/catdogmaus/ilmaprognoos/all.svg)](https://github.com/catdogmaus/ilmaprognoos/releases) 
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)<br/>
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)<br/>
 
 <span class="badge-buymeacoffee">
 <a href="https://ko-fi.com/catdog58928" title="Support this project using Ko-Fi"><img src="https://img.shields.io/badge/Buy_me_coffee_and_biscuits-support-yellow.svg?style=for-the-badge&logo=kofi" alt="Buy Me A Coffee  button" /></a>
