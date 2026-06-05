@@ -1,6 +1,6 @@
 # Home Assistant Ilmaprognoos (Estonian Weather Forecast) Integration
 
-[![GitHub](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE)  [![](https://img.shields.io/github/release/catdogmaus/ilmaprognoos/all.svg)](https://github.com/catdogmaus/ilmaprognoos/releases) 
+[![GitHub License](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE) [![GitHub Release](https://img.shields.io/github/v/release/catdogmaus/ilmaprognoos?color=blue)](https://github.com/catdogmaus/ilmaprognoos/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)<br/>
 
 <span class="badge-buymeacoffee">
