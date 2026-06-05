@@ -7,7 +7,10 @@ from homeassistant.components.weather import (
     Forecast,
 )
 from homeassistant.const import (
-    UnitOfPressure, UnitOfSpeed, UnitOfTemperature
+    UnitOfPressure, 
+    UnitOfSpeed, 
+    UnitOfTemperature,
+    UnitOfPrecipitationDepth
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.sun import is_up
@@ -27,6 +30,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_pressure_unit = UnitOfPressure.HPA
     _attr_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
+    _attr_precipitation_unit = UnitOfPrecipitationDepth.MILLIMETERS 
     _attr_attribution = "Andmed: ilmateenistus.ee"
 
     def __init__(self, coordinator):
@@ -35,6 +39,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_weather"
         
         coords = coordinator.config_entry.data.get("coords")
+        
         if coords:
             config_url = f"https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/?coordinates={coords}"
         else:
@@ -61,20 +66,6 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         if condition == "clear":
             return "sunny" if is_up(self.hass, timestamp) else "clear-night"
         return condition
-        
-    def _map_xml_condition(self, condition_text):
-        """Map the English phenomenon string from XML to HA condition."""
-        cond = condition_text.lower()
-        if "clear" in cond: return "clear"
-        if "few clouds" in cond or "variable clouds" in cond or "cloudy with clear spells" in cond: return "partlycloudy"
-        if "overcast" in cond: return "cloudy"
-        if "snow" in cond or "snowfall" in cond: return "snowy"
-        if "shower" in cond and "snow" not in cond: return "pouring" if "heavy" in cond else "rainy"
-        if "rain" in cond: return "pouring" if "heavy" in cond else "rainy"
-        if "glaze" in cond or "sleet" in cond: return "snowy-rainy"
-        if "hail" in cond: return "hail"
-        if "mist" in cond or "fog" in cond: return "fog"
-        return "cloudy"
 
     @property
     def name(self): 
@@ -98,16 +89,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
                 if "rain" in w_type: return "rainy"
                 if "wind" in w_type: return "windy"
                 if "fog" in w_type: return "fog"
-            
-            # --- FIX: Removed the "exceptional" fallback here! ---
-            # If the warning doesn't match an icon above, it ignores the warning 
-            # and proceeds to check actual weather conditions below.
-
-        # Check Current XML condition first if available
-        current_phenomenon = self.coordinator.data.get("current", {}).get("phenomenon")
-        if current_phenomenon:
-            mapped_condition = self._map_xml_condition(current_phenomenon)
-            return self._get_sun_aware_condition(mapped_condition, dt_util.now())
+            return "exceptional"
 
         hourly_forecast = self.coordinator.data.get("hourly",[])
         if hourly_forecast:
@@ -165,7 +147,17 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             return " ".join(wind_string.split(" ")[0:-2])
         return wind_string
 
+    @property
+    def native_precipitation(self):
+        """Return the current precipitation."""
+        val = self.coordinator.data.get("current", {}).get("sademed")
+        if val is None: return 0.0
+        if isinstance(val, (int, float)): return float(val)
+        try: return float(str(val).split(" ")[0])
+        except (ValueError, IndexError): return 0.0
+
     async def async_forecast_daily(self) -> list[Forecast] | None:
+        """Return the daily forecast in native units."""
         daily_data = self.coordinator.data.get("daily")
         if not daily_data: return None
         
@@ -177,11 +169,12 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
                 forecast_time = dt_util.as_local(datetime.combine(forecast_date, datetime.min.time()))
                 
                 day_data = dict()
-                day_data["datetime"] = item.get("datetime")
+                day_data["datetime"] = forecast_time.isoformat() 
                 day_data["native_temperature"] = item.get("temperature")
                 day_data["native_templow"] = item.get("templow")
                 day_data["condition"] = self._get_sun_aware_condition(item.get("condition"), forecast_time)
-                day_data["native_precipitation_value"] = item.get("precipitation")
+                # --- FIX: Corrected key name below ---
+                day_data["native_precipitation"] = item.get("precipitation") 
                 
                 result_list.append(day_data)
             except Exception:
@@ -189,25 +182,30 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         return result_list
 
     async def async_forecast_hourly(self) -> list[Forecast] | None:
+        """Return the hourly forecast in native units."""
         hourly_data = self.coordinator.data.get("hourly")
-        if not hourly_data:
-            return None
-            
+        if not hourly_data: return None
+        
         result_list = list()
+        now = dt_util.now()
+        current_hour = now.replace(minute=0, second=0, microsecond=0)
         
         for item in hourly_data:
             try:
                 dt_str = item.get("datetime")
-                if not dt_str:
-                    continue
-                    
+                if not dt_str: continue
+                
                 f_time = dt_util.as_local(datetime.fromisoformat(dt_str))
                 
+                if f_time < current_hour:
+                    continue
+                
                 hour_data = dict()
-                hour_data["datetime"] = dt_str
+                hour_data["datetime"] = f_time.isoformat()
                 hour_data["native_temperature"] = item.get("temperature")
                 hour_data["condition"] = self._get_sun_aware_condition(item.get("condition"), f_time)
-                hour_data["native_precipitation_value"] = item.get("precipitation")
+                # --- FIX: Corrected key name below ---
+                hour_data["native_precipitation"] = item.get("precipitation")
                 hour_data["native_wind_speed"] = item.get("wind_speed")
                 hour_data["wind_bearing"] = item.get("wind_bearing")
                 hour_data["native_pressure"] = item.get("pressure")
