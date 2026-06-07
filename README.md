@@ -19,8 +19,9 @@ The easiest way to install this integration is with the [Home Assistant Communit
 2. Click the `⋮` button in corner
 3. Add this repository as a **custom repository** `https://github.com/catdogmaus/ilmaprognoos`
 4. Select "Integration"
-5. Restart Home Assistant. (This is crucial for Home Assistant to recognize the new integration).
-6. Go **Devices and services** and click **Add Integration**. Search for **Ilmaprognoos** and follow configuration flow.
+5. Download it to HACS
+6. Restart Home Assistant. (This is crucial for Home Assistant to recognize the new integration).
+7. Go **Devices and services** and click **Add Integration**. Search for **Ilmaprognoos** and follow configuration flow.
 
 ## How it works
 Key Features:
