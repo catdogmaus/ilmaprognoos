@@ -21,18 +21,19 @@ async def async_setup_entry(hass, entry, async_add_entities):
     if not coordinator.is_forecast_only:
         sensors_to_add.append(IlmaprognoosHumiditySensor(coordinator))
         
+        # --- RESTORED: Add ALL XML sensors if data is present ---
         initial_data = coordinator.data.get("current", {})
         
         if "wind_speed_max" in initial_data:
             sensors_to_add.append(IlmaprognoosWindGustSensor(coordinator))
+        if "visibility" in initial_data:
+            sensors_to_add.append(IlmaprognoosVisibilitySensor(coordinator))
         if "veetase" in initial_data:
             sensors_to_add.append(IlmaprognoosWaterLevelSensor(coordinator))
         if "veetase_eh2000" in initial_data:
             sensors_to_add.append(IlmaprognoosSeaLevelSensor(coordinator))
         if "veetemp" in initial_data:
             sensors_to_add.append(IlmaprognoosWaterTempSensor(coordinator))
-        if "visibility" in initial_data:
-            sensors_to_add.append(IlmaprognoosVisibilitySensor(coordinator))
         if "uvindex" in initial_data:
             sensors_to_add.append(IlmaprognoosUVIndexSensor(coordinator))
         if "sunshineduration" in initial_data:
@@ -69,14 +70,13 @@ class IlmaprognoosBaseSensor(CoordinatorEntity, SensorEntity):
     def available(self) -> bool:
         return super().available and self.coordinator.data is not None
 
-
 class IlmaprognoosWarningsSensor(IlmaprognoosBaseSensor):
     _attr_icon = "mdi:alert-outline"; _attr_name = "Hoiatused"
     def __init__(self, coordinator):
         super().__init__(coordinator); self._attr_unique_id = f"{coordinator.config_entry.entry_id}_warnings"
     @property
     def state(self):
-        warnings = self.coordinator.data.get("warnings",[])
+        warnings = self.coordinator.data.get("warnings", [])
         if not warnings: return "Hoiatusi pole"
         descriptions = [w.get("description") for w in warnings if w.get("description")]
         if not descriptions: return "Tundmatu hoiatus"
@@ -92,10 +92,9 @@ class IlmaprognoosWarningsSensor(IlmaprognoosBaseSensor):
             return f"{first_warning}{suffix}"
     @property
     def extra_state_attributes(self):
-        warnings = self.coordinator.data.get("warnings",[])
+        warnings = self.coordinator.data.get("warnings", [])
         descriptions = [w.get("description") for w in warnings if w.get("description")]
         return {"descriptions": "\n".join(descriptions), "warnings_count": len(descriptions), "raw_warnings": warnings}
-
 
 class IlmaprognoosPrecipitationSensor(IlmaprognoosBaseSensor):
     _attr_name = "Sademed"; _attr_native_unit_of_measurement = "mm/h"; _attr_icon = "mdi:weather-pouring"; _attr_state_class = SensorStateClass.MEASUREMENT
@@ -128,6 +127,7 @@ class IlmaprognoosHumiditySensor(IlmaprognoosBaseSensor):
         try: return float(str(val).replace("%", ""))
         except ValueError: return None
 
+# --- RESTORED XML SENSORS ---
 
 class IlmaprognoosWindGustSensor(IlmaprognoosBaseSensor):
     _attr_name = "Tuulepuhangud"
@@ -141,7 +141,7 @@ class IlmaprognoosWindGustSensor(IlmaprognoosBaseSensor):
 
 class IlmaprognoosVisibilitySensor(IlmaprognoosBaseSensor):
     _attr_name = "Nähtavus"
-    _attr_native_unit_of_measurement = "km"
+    _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_icon = "mdi:eye"
     _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, coordinator):
@@ -151,7 +151,7 @@ class IlmaprognoosVisibilitySensor(IlmaprognoosBaseSensor):
 
 class IlmaprognoosWaterLevelSensor(IlmaprognoosBaseSensor):
     _attr_name = "Sisevete veetase"
-    _attr_native_unit_of_measurement = "cm"
+    _attr_native_unit_of_measurement = UnitOfLength.CENTIMETERS
     _attr_icon = "mdi:waves-arrow-up"
     _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, coordinator):
@@ -161,7 +161,7 @@ class IlmaprognoosWaterLevelSensor(IlmaprognoosBaseSensor):
 
 class IlmaprognoosSeaLevelSensor(IlmaprognoosBaseSensor):
     _attr_name = "Merevee tase"
-    _attr_native_unit_of_measurement = "cm"
+    _attr_native_unit_of_measurement = UnitOfLength.CENTIMETERS
     _attr_icon = "mdi:waves-arrow-up"
     _attr_state_class = SensorStateClass.MEASUREMENT
     def __init__(self, coordinator):
@@ -191,7 +191,6 @@ class IlmaprognoosUVIndexSensor(IlmaprognoosBaseSensor):
 
 class IlmaprognoosSunshineDurationSensor(IlmaprognoosBaseSensor):
     _attr_name = "Päikesepaiste kestus (mõõdetud)"
-    # --- FIX: Changed to hours ---
     _attr_native_unit_of_measurement = UnitOfTime.HOURS
     _attr_icon = "mdi:timer-sand"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -211,12 +210,11 @@ class IlmaprognoosGlobalRadiationSensor(IlmaprognoosBaseSensor):
     def native_value(self): return self.coordinator.data.get("current", {}).get("globalradiation")
 
 
+# --- Forecast Sensors ---
 class IlmaprognoosSunshineSensor(IlmaprognoosBaseSensor):
     _attr_native_unit_of_measurement = UnitOfTime.HOURS; _attr_icon = "mdi:weather-sunny"; _attr_state_class = SensorStateClass.MEASUREMENT
     @property
-    def available(self) -> bool:
-        return super().available and self.coordinator.data.get("sunshine") is not None
-
+    def available(self) -> bool: return super().available and self.coordinator.data.get("sunshine") is not None
 class SunshineTodaySensor(IlmaprognoosSunshineSensor):
     _attr_name = "Päikesepaiste täna"
     def __init__(self, coordinator):
@@ -242,13 +240,10 @@ class SunshineDay3Sensor(IlmaprognoosSunshineSensor):
     @property
     def native_value(self): return self.coordinator.data.get("sunshine", {}).get("day_3")
 
-
 class IlmaprognoosPrecipitationForecastSensor(IlmaprognoosBaseSensor):
     _attr_native_unit_of_measurement = UnitOfPrecipitationDepth.MILLIMETERS; _attr_icon = "mdi:water-percent"; _attr_state_class = SensorStateClass.MEASUREMENT
     @property
-    def available(self) -> bool:
-        return super().available and self.coordinator.data.get("precipitation_forecast") is not None
-
+    def available(self) -> bool: return super().available and self.coordinator.data.get("precipitation_forecast") is not None
 class PrecipitationTodaySensor(IlmaprognoosPrecipitationForecastSensor):
     _attr_name = "Sademed täna"
     def __init__(self, coordinator):

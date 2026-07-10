@@ -20,6 +20,7 @@ from .const import (
 )
 
 def fetch_data_sync(xml_url, forecast_url, headers):
+    """Fetch data using requests."""
     xml_text = None
     if xml_url:
         xml_res = requests.get(xml_url, headers=headers, timeout=20)
@@ -31,8 +32,12 @@ def fetch_data_sync(xml_url, forecast_url, headers):
     
     return xml_text, forecast_res.json()
 
+
 class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching data from the API."""
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        """Initialize."""
         self.config_entry = entry
         config_data = entry.data
         
@@ -77,6 +82,9 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
 
             hourly_forecast = self._process_hourly_forecast(forecast_json)
             
+            if not hourly_forecast and getattr(self, "data", None) is not None:
+                raise UpdateFailed("Prognoosi andmed puuduvad (tühi JSON).")
+            
             current_data = {}
             if xml_text:
                 current_data = self._parse_xml_observations(xml_text)
@@ -86,7 +94,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             sunshine_forecast = self._process_sunshine_forecast(hourly_forecast)
             precipitation_forecast = self._process_precipitation_forecast(hourly_forecast)
 
-            self.hass.bus.async_fire("logbook_entry", {"message": "Uuendamine õnnestus", "entity_id": self.weather_entity_id, "domain": DOMAIN})
+            self.hass.bus.async_fire("logbook_entry", {"message": "Uuendamine õnnestus", "entity_id": self.status_entity_id, "domain": DOMAIN})
 
             return {
                 "current": final_current_data,
@@ -98,16 +106,16 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 "precipitation_forecast": precipitation_forecast
             }
         except Exception as err:
-            self.hass.bus.async_fire("logbook_entry", {"message": f"Uuendamine ebaõnnestus: {err}", "entity_id": self.weather_entity_id, "domain": DOMAIN})
+            self.hass.bus.async_fire("logbook_entry", {"message": f"Uuendamine ebaõnnestus: {err}", "entity_id": self.status_entity_id, "domain": DOMAIN})
             
-            # --- FIX 5: Fallback to existing data if the update fails ---
-            if self.data is not None:
+            if getattr(self, "data", None) is not None:
                 LOGGER.warning(f"Data fetch failed: {err}. Persisting old data to prevent 'Unknown' state.")
                 return self.data
                 
             raise UpdateFailed(f"An unexpected error occurred: {err}")
 
     def _extract_station_data(self, station_element):
+        """Extracts ALL data from the XML element."""
         data = {}
         mapping = {
             "temperature": "airtemperature",
@@ -130,14 +138,14 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             if val is not None and val.strip() != "":
                 try: 
                     parsed_val = float(val)
-                    # --- FIX: Convert sunshine duration to hours ---
                     if our_key == "sunshineduration":
-                        data[our_key] = round(parsed_val / 60.0, 1)
+                        data[our_key] = round(parsed_val / 60.0, 1) # Convert minutes to hours
                     else:
                         data[our_key] = parsed_val
                 except ValueError: 
                     pass
                 
+        # Extract the English phenomenon string as text
         phenom = station_element.findtext("phenomenon")
         if phenom and phenom.strip():
             data["phenomenon"] = phenom.strip()
@@ -145,6 +153,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         return data
 
     def _parse_xml_observations(self, xml_text):
+        """Finds primary and secondary stations and merges them."""
         try:
             root = ET.fromstring(xml_text)
             primary_data = {}
@@ -157,6 +166,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 elif name == self.secondary_station and self.secondary_station != NO_SECONDARY_ID:
                     secondary_data = self._extract_station_data(station)
             
+            # Start with secondary data as a base, overwrite with primary data
             merged = secondary_data.copy()
             merged.update(primary_data)
             return merged
@@ -165,6 +175,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return {}
 
     def _merge_current_with_forecast(self, current_data: dict, hourly_forecast: list) -> dict:
+        """Fallback to forecast if XML is missing critical data."""
         if not hourly_forecast: return current_data
         first_hour = hourly_forecast[0]
         final_data = current_data.copy()
@@ -174,26 +185,36 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         if final_data.get("wind_speed") is None: final_data["wind_speed"] = first_hour.get("wind_speed")
         if final_data.get("wind_bearing") is None: final_data["wind_bearing"] = first_hour.get("wind_bearing")
         if final_data.get("ohurohk") is None: final_data["ohurohk"] = first_hour.get("pressure")
+        if final_data.get("phenomenon") is None: final_data["phenomenon"] = first_hour.get("condition_text_et")
+        
+        if final_data.get("tuul") is None:
+            wind_dir_name = first_hour.get("wind_bearing_name")
+            wind_speed_ms = first_hour.get("wind_speed")
+            if wind_dir_name is not None and wind_speed_ms is not None:
+                final_data["tuul"] = f"{wind_dir_name} {wind_speed_ms} m/s"
         return final_data
 
     def _process_daily_forecast(self, api_data):
         try:
             hourly_forecasts = api_data.get("forecast", {}).get("tabular", {}).get("time",[])
             if not hourly_forecasts: return []
-            daily_data = defaultdict(lambda: {"temps": [], "conditions": [], "precip": []})
+            daily_data = defaultdict(lambda: {"temps": [], "conditions":[], "precip":[]})
             for hour in hourly_forecasts:
                 try:
                     dt_object = datetime.fromisoformat(hour.get("@attributes", {}).get("from", ""))
                     date_key = dt_object.date().isoformat()
+                    
                     temp = hour.get("temperature", {}).get("@attributes", {}).get("value")
                     if temp is not None: daily_data[date_key]["temps"].append(float(temp))
+                    
                     cond = hour.get("phenomen", {}).get("@attributes", {}).get("et")
                     if cond: daily_data[date_key]["conditions"].append(cond)
+                    
                     precip = hour.get("precipitation", {}).get("@attributes", {}).get("value")
                     if precip is not None: daily_data[date_key]["precip"].append(float(precip))
                 except Exception: continue
 
-            final_forecast_list = []
+            final_forecast_list =[]
             for date_iso, data in sorted(daily_data.items()):
                 if not data["temps"]: continue
                 day_conditions = [c for c in data["conditions"] if "selge" not in c.lower() and "vähene" not in c.lower()]
@@ -210,13 +231,14 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 final_forecast_list.append(forecast_day)
             return final_forecast_list
         except Exception as e:
-            return []
+            LOGGER.warning(f"Failed to process daily forecast: {e}")
+            return[]
 
     def _process_hourly_forecast(self, api_data):
         try:
             raw_hourly = api_data.get("forecast", {}).get("tabular", {}).get("time", [])
             if not raw_hourly: return []
-            final_forecast_list = []
+            final_forecast_list =[]
             for hour in raw_hourly:
                 try:
                     condition_text_et = hour.get("phenomen", {}).get("@attributes", {}).get("et", "")
@@ -236,7 +258,8 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 except Exception: continue
             return final_forecast_list
         except Exception as e:
-            return []
+            LOGGER.warning(f"Failed to process hourly forecast: {e}")
+            return[]
 
     def _process_sunshine_forecast(self, hourly_forecast: list) -> dict:
         sunshine_map = {"selge": 60, "vähene pilvisus": 45, "pilves selgimistega": 30, "vahelduv pilvisus": 30}
@@ -294,13 +317,15 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return []
         
     def _map_condition(self, condition_text):
-        if "selge" in condition_text: return "clear"
-        if "vähene pilvisus" in condition_text: return "partlycloudy"
-        if "pilves selgimistega" in condition_text: return "partlycloudy"
-        if "vahelduv pilvisus" in condition_text: return "partlycloudy"
-        if "pilves" in condition_text: return "cloudy"
-        if "vihm" in condition_text: return "rainy"
-        if "lumi" in condition_text: return "snowy"
-        if "äike" in condition_text: return "lightning-rainy"
-        if "udu" in condition_text: return "fog"
+        """Map Estonian/English phenomenon string from XML/Forecast to HA condition."""
+        if not condition_text: return "cloudy"
+        c = condition_text.lower()
+        if any(x in c for x in ["selge", "clear"]): return "clear"
+        if any(x in c for x in ["vähene", "vahelduv", "few", "variable", "spells"]): return "partlycloudy"
+        if any(x in c for x in ["pilves", "cloudy", "overcast"]): return "cloudy"
+        if any(x in c for x in ["lörts", "sleet", "jäide", "glaze"]): return "snowy-rainy"
+        if any(x in c for x in ["lumi", "snow"]): return "snowy"
+        if any(x in c for x in ["vihm", "rain", "shower"]): return "rainy"
+        if any(x in c for x in ["äike", "thunder", "hail", "rahe"]): return "lightning-rainy"
+        if any(x in c for x in ["udu", "fog", "mist"]): return "fog"
         return "cloudy"
