@@ -11,7 +11,7 @@ from homeassistant.const import (
     UnitOfSpeed, 
     UnitOfTemperature,
     UnitOfPrecipitationDepth,
-    UnitOfLength # Added for visibility
+    UnitOfLength # --- RESTORED: Needed for visibility ---
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.sun import is_up
@@ -31,8 +31,8 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_pressure_unit = UnitOfPressure.HPA
     _attr_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
-    _attr_precipitation_unit = UnitOfPrecipitationDepth.MILLIMETERS
-    _attr_visibility_unit = UnitOfLength.KILOMETERS
+    _attr_precipitation_unit = UnitOfPrecipitationDepth.MILLIMETERS 
+    _attr_visibility_unit = UnitOfLength.KILOMETERS # --- RESTORED ---
     _attr_attribution = "Andmed: ilmateenistus.ee"
 
     def __init__(self, coordinator):
@@ -41,7 +41,11 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_weather"
         
         coords = coordinator.config_entry.data.get("coords")
-        config_url = f"https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/?coordinates={coords}" if coords else "https://www.ilmateenistus.ee"
+        
+        if coords:
+            config_url = f"https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/?coordinates={coords}"
+        else:
+            config_url = "https://www.ilmateenistus.ee"
 
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
@@ -51,23 +55,30 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             "model": "Keskkonnaagentuur & ilmateenistus.ee",
             "configuration_url": config_url,
         }
+
         self._attr_supported_features = (WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY)
 
     async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
         self._handle_coordinator_update()
 
     def _get_sun_aware_condition(self, condition: str, timestamp: datetime) -> str:
-        if condition == "clear": return "sunny" if is_up(self.hass, timestamp) else "clear-night"
+        """Return sunny or clear-night based on sun state at a given time."""
+        if condition == "clear":
+            return "sunny" if is_up(self.hass, timestamp) else "clear-night"
         return condition
 
     @property
-    def name(self): return "Ilm"
+    def name(self): 
+        return "Ilm"
 
     @property
     def condition(self):
+        """Return the current condition, with intelligent prioritized warning override."""
         use_warning_override = self.coordinator.config_entry.options.get(CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE)
         warnings = self.coordinator.data.get("warnings",[])
+        
         if use_warning_override and warnings:
             for w in warnings:
                 if "thunderstorm" in w.get("warningEng", "").lower(): return "lightning-rainy"
@@ -82,24 +93,33 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
                 if "fog" in w_type: return "fog"
             return "exceptional"
 
+        current_phenomenon = self.coordinator.data.get("current", {}).get("phenomenon")
+        if current_phenomenon:
+            mapped_condition = self.coordinator._map_condition(current_phenomenon)
+            return self._get_sun_aware_condition(mapped_condition, dt_util.now())
+
         hourly_forecast = self.coordinator.data.get("hourly",[])
         if hourly_forecast:
             now = dt_util.now()
             for hour in hourly_forecast:
                 try:
                     forecast_time = dt_util.as_local(datetime.fromisoformat(hour["datetime"]))
-                    if forecast_time >= now: return self._get_sun_aware_condition(hour.get("condition"), forecast_time)
+                    if forecast_time >= now:
+                        return self._get_sun_aware_condition(hour.get("condition"), forecast_time)
                 except (ValueError, KeyError): continue
             if hourly_forecast:
                 last_forecast_time = dt_util.as_local(datetime.fromisoformat(hourly_forecast[-1]["datetime"]))
                 return self._get_sun_aware_condition(hourly_forecast[-1].get("condition"), last_forecast_time)
 
         daily_forecast = self.coordinator.data.get("daily",[])
-        if daily_forecast: return self._get_sun_aware_condition(daily_forecast[0].get("condition"), dt_util.now())
+        if daily_forecast:
+            return self._get_sun_aware_condition(daily_forecast[0].get("condition"), dt_util.now())
+        
         return None
 
     @property
-    def native_temperature(self): return self.coordinator.data.get("current", {}).get("temperature")
+    def native_temperature(self): 
+        return self.coordinator.data.get("current", {}).get("temperature")
     
     @property
     def native_pressure(self):
@@ -116,6 +136,13 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         if isinstance(val, (int, float)): return float(val)
         try: return float(str(val).replace("%", ""))
         except ValueError: return None
+
+    # --- RESTORED: Visibility ---
+    @property
+    def native_visibility(self):
+        val = self.coordinator.data.get("current", {}).get("visibility")
+        if val is not None: return float(val)
+        return None
         
     @property
     def native_wind_speed(self):
@@ -125,19 +152,13 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             except ValueError: return None
         return None
 
-    # --- NEW: Wind Gusts & Visibility ---
+    # --- RESTORED: Wind Gusts ---
     @property
     def native_wind_gust_speed(self):
-        wind_ms = self.coordinator.data.get("current", {}).get("wind_speed_max")
-        if wind_ms is not None: 
-            try: return round(float(wind_ms) * 3.6, 1)
+        gust_ms = self.coordinator.data.get("current", {}).get("wind_speed_max")
+        if gust_ms is not None: 
+            try: return round(float(gust_ms) * 3.6, 1)
             except ValueError: return None
-        return None
-
-    @property
-    def native_visibility(self):
-        val = self.coordinator.data.get("current", {}).get("visibility")
-        if val is not None: return float(val)
         return None
         
     @property
@@ -151,6 +172,7 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
 
     @property
     def native_precipitation(self):
+        """Return the current precipitation."""
         val = self.coordinator.data.get("current", {}).get("sademed")
         if val is None: return 0.0
         if isinstance(val, (int, float)): return float(val)
@@ -158,36 +180,47 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
         except (ValueError, IndexError): return 0.0
 
     async def async_forecast_daily(self) -> list[Forecast] | None:
+        """Return the daily forecast in native units."""
         daily_data = self.coordinator.data.get("daily")
-        if not daily_data: return None
+        if not daily_data: return []
+        
         result_list = list()
         for item in daily_data:
             try:
                 forecast_date = dt_util.parse_date(item.get("datetime"))
                 if not forecast_date: continue
                 forecast_time = dt_util.as_local(datetime.combine(forecast_date, datetime.min.time()))
+                
                 day_data = dict()
                 day_data["datetime"] = forecast_time.isoformat() 
                 day_data["native_temperature"] = item.get("temperature")
                 day_data["native_templow"] = item.get("templow")
                 day_data["condition"] = self._get_sun_aware_condition(item.get("condition"), forecast_time)
                 day_data["native_precipitation"] = item.get("precipitation") 
+                
                 result_list.append(day_data)
-            except Exception: continue
+            except Exception:
+                continue
         return result_list
 
     async def async_forecast_hourly(self) -> list[Forecast] | None:
+        """Return the hourly forecast in native units."""
         hourly_data = self.coordinator.data.get("hourly")
-        if not hourly_data: return None
+        if not hourly_data: return []
+        
         result_list = list()
         now = dt_util.now()
         current_hour = now.replace(minute=0, second=0, microsecond=0)
+        
         for item in hourly_data:
             try:
                 dt_str = item.get("datetime")
                 if not dt_str: continue
+                
                 f_time = dt_util.as_local(datetime.fromisoformat(dt_str))
-                if f_time < current_hour: continue
+                
+                if f_time < current_hour:
+                    continue
                 
                 hour_data = dict()
                 hour_data["datetime"] = f_time.isoformat()
@@ -197,6 +230,9 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
                 hour_data["native_wind_speed"] = item.get("wind_speed")
                 hour_data["wind_bearing"] = item.get("wind_bearing")
                 hour_data["native_pressure"] = item.get("pressure")
+                
                 result_list.append(hour_data)
-            except Exception: continue
+            except Exception:
+                continue
+                
         return result_list

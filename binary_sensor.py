@@ -39,16 +39,29 @@ class IlmaprognoosStatusSensor(CoordinatorEntity, BinarySensorEntity):
         return "Uuendamise staatus"
 
     @property
+    def available(self) -> bool:
+        """
+        --- NEW: Override availability ---
+        Always return True! We want the user to see the "Viga" (Problem) state
+        even if the main coordinator data fails to update.
+        """
+        return True
+
+    @property
     def is_on(self):
         """Return true if the coordinator has an error."""
-        return not self.coordinator.last_update_success
+        # --- NEW: Use our custom, under-the-hood error flag ---
+        # 1. If HA officially thinks it failed (e.g. initial startup crash)
+        if not self.coordinator.last_update_success:
+            return True
+            
+        # 2. If HA thinks it succeeded (because of data persistence), 
+        #    but we logged a true API error internally.
+        return getattr(self.coordinator, "api_fetch_error", False)
 
     @property
     def extra_state_attributes(self):
         """Return other attributes."""
-        # --- THIS IS THE FIX ---
-        # The attribute is on the coordinator itself.
-        # It may be None on the very first run, so we add a fallback.
         return {
             "last_successful_update": getattr(self.coordinator, "last_update_success_timestamp", None)
         }
