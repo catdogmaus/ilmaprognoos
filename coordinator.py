@@ -54,9 +54,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         self.weather_entity_id = f"weather.{slug}_ilm"
         self.status_entity_id = f"binary_sensor.{slug}_uuendamise_staatus"
         
-        # --- NEW: True under-the-hood error tracking flag ---
-        self.api_fetch_error = False
-        
         super().__init__(hass, LOGGER, name=DOMAIN)
         self._update_interval_from_options()
 
@@ -99,9 +96,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
 
             self.hass.bus.async_fire("logbook_entry", {"message": "Uuendamine õnnestus", "entity_id": self.status_entity_id, "domain": DOMAIN})
 
-            # --- NEW: Reset the error flag on success ---
-            self.api_fetch_error = False
-
             return {
                 "current": final_current_data,
                 "daily": self._process_daily_forecast(forecast_json),
@@ -112,9 +106,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 "precipitation_forecast": precipitation_forecast
             }
         except Exception as err:
-            # --- NEW: Set the true error flag before handling fallbacks ---
-            self.api_fetch_error = True
-            
             self.hass.bus.async_fire("logbook_entry", {"message": f"Uuendamine ebaõnnestus: {err}", "entity_id": self.status_entity_id, "domain": DOMAIN})
             
             if getattr(self, "data", None) is not None:
@@ -147,7 +138,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 try: 
                     parsed_val = float(val)
                     if our_key == "sunshineduration":
-                        data[our_key] = round(parsed_val / 60.0, 1)
+                        data[our_key] = round(parsed_val / 60.0, 1) # Convert minutes to hours
                     else:
                         data[our_key] = parsed_val
                 except ValueError: 
@@ -321,14 +312,24 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return []
         
     def _map_condition(self, condition_text):
+        """Map Estonian/English phenomenon string from XML/Forecast to HA condition."""
         if not condition_text: return "cloudy"
         c = condition_text.lower()
-        if any(x in c for x in ["selge", "clear"]): return "clear"
-        if any(x in c for x in ["vähene", "vahelduv", "few", "variable", "spells"]): return "partlycloudy"
-        if any(x in c for x in ["pilves", "cloudy", "overcast"]): return "cloudy"
+        
+        # --- Check for precise multi-word phrases FIRST ---
+        if "clear spells" in c or "peamiselt pilves" in c or "selgimistega" in c: return "partlycloudy"
+        if "few clouds" in c or "vähene pilvisus" in c: return "partlycloudy"
+        if "variable clouds" in c or "poolpilves" in c or "vahelduv pilvisus" in c: return "partlycloudy"
+        
+        # Then check for precipitation
         if any(x in c for x in ["lörts", "sleet", "jäide", "glaze"]): return "snowy-rainy"
         if any(x in c for x in ["lumi", "snow", "snowfall"]): return "snowy"
         if any(x in c for x in ["vihm", "rain", "shower"]): return "pouring" if "heavy" in c or "tugev" in c else "rainy"
         if any(x in c for x in ["äike", "thunder", "hail", "rahe"]): return "lightning-rainy"
         if any(x in c for x in ["udu", "fog", "mist"]): return "fog"
+        
+        # --- FINALLY, check for broad single words as a fallback ---
+        if any(x in c for x in ["selge", "clear"]): return "clear"
+        if any(x in c for x in ["pilves", "cloudy", "overcast"]): return "cloudy"
+        
         return "cloudy"
