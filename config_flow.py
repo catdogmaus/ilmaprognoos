@@ -9,6 +9,7 @@ import requests
 import xml.etree.ElementTree as ET
 from homeassistant.util import slugify
 
+# --- THE FIX: Removed LOCATIONS and MANUAL_LOCATION_ID from imports ---
 from .const import (
     DOMAIN, XML_OBSERVATIONS_URL, HEADERS, FORECAST_ONLY_ID, NO_SECONDARY_ID,
     DEFAULT_CURRENT_INTERVAL, DEFAULT_FORECAST_INTERVAL, CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE
@@ -82,18 +83,19 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if name and s_lat_text and s_lon_text:
                         dist = haversine(user_lat, user_lon, float(s_lat_text), float(s_lon_text))
                         
-                        # --- FIX 1: Calculate Data Richness ---
                         # Count how many data tags have actual text in them
                         data_count = sum(1 for child in station if child.text and child.text.strip() and child.tag not in ['name', 'latitude', 'longitude', 'wmocode'])
                         
-                        stations.append({'name': name, 'dist': dist, 'data_count': data_count})
+                        # Only include the station in our list if it actually transmits data
+                        if data_count > 0:
+                            stations.append({'name': name, 'dist': dist, 'data_count': data_count})
                 
-                # --- FIX 1: Sort by distance, take top 5, then rank by richness ---
+                # Sort by distance, take top 5
                 stations.sort(key=lambda x: x['dist'])
                 top_5 = stations[:5]
                 
                 if top_5:
-                    # max() keeps the first encountered item if there's a tie (meaning it prefers the closer one)
+                    # Prefer the richest station among the closest 5
                     richest_station = max(top_5, key=lambda x: x['data_count'])
                     top_5.remove(richest_station)
                     top_5.insert(0, richest_station)
@@ -149,6 +151,9 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
+    def __init__(self) -> None:
+        pass
+
     async def async_step_init(self, user_input=None):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
@@ -165,7 +170,7 @@ class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
         if not is_forecast_only:
             current_interval = self.config_entry.options.get("current_interval", DEFAULT_CURRENT_INTERVAL.seconds // 60)
             schema_fields[vol.Required("current_interval", default=current_interval)] = selector.NumberSelector(
-                selector.NumberSelectorConfig(min=5, max=30, step=1, unit_of_measurement="minutes")
+                selector.NumberSelectorConfig(min=5, max=60, step=1, unit_of_measurement="minutes")
             )
 
         schema_fields[vol.Required("forecast_interval", default=forecast_interval)] = selector.NumberSelector(

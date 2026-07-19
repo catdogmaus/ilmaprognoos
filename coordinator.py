@@ -54,6 +54,10 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         self.weather_entity_id = f"weather.{slug}_ilm"
         self.status_entity_id = f"binary_sensor.{slug}_uuendamise_staatus"
         
+        self.api_fetch_error = False
+        # --- NEW: Store the last error message ---
+        self.last_error_reason = None
+        
         super().__init__(hass, LOGGER, name=DOMAIN)
         self._update_interval_from_options()
 
@@ -96,6 +100,10 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
 
             self.hass.bus.async_fire("logbook_entry", {"message": "Uuendamine õnnestus", "entity_id": self.status_entity_id, "domain": DOMAIN})
 
+            # Clear error status on successful fetch
+            self.api_fetch_error = False
+            self.last_error_reason = None
+
             return {
                 "current": final_current_data,
                 "daily": self._process_daily_forecast(forecast_json),
@@ -106,13 +114,49 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 "precipitation_forecast": precipitation_forecast
             }
         except Exception as err:
-            self.hass.bus.async_fire("logbook_entry", {"message": f"Uuendamine ebaõnnestus: {err}", "entity_id": self.status_entity_id, "domain": DOMAIN})
+            self.api_fetch_error = True
+            # --- FIX: Store and format detailed error message ---
+            self.last_error_reason = str(err)
+            
+            self.hass.bus.async_fire("logbook_entry", {
+                "message": f"ebaõnnestus: {err}",
+                "entity_id": self.status_entity_id,
+                "domain": DOMAIN,
+            })
             
             if getattr(self, "data", None) is not None:
                 LOGGER.warning(f"Data fetch failed: {err}. Persisting old data to prevent 'Unknown' state.")
                 return self.data
                 
             raise UpdateFailed(f"An unexpected error occurred: {err}")
+
+    def _translate_phenomenon(self, eng_text):
+        translations = {
+            "clear": "Selge",
+            "few clouds": "Vähene pilvisus",
+            "variable clouds": "Poolpilves",
+            "cloudy with clear spells": "Peamiselt pilves",
+            "overcast": "Pilves",
+            "light snow shower": "Nõrk hooglumi",
+            "moderate snow shower": "Mõõdukas hooglumi",
+            "heavy snow shower": "Tugev hooglumi",
+            "light shower": "Nõrk hoovihm",
+            "moderate shower": "Mõõdukas hoovihm",
+            "heavy shower": "Tugev hoovihm",
+            "light rain": "Nõrk vihm",
+            "moderate rain": "Mõõdukas vihm",
+            "heavy rain": "Tugev vihm",
+            "glaze": "Jäide",
+            "light sleet": "Nõrk lörtsisadu",
+            "moderate sleet": "Mõõdukas lörtsisadu",
+            "light snowfall": "Nõrk lumesadu",
+            "moderate snowfall": "Mõõdukas lumesadu",
+            "heavy snowfall": "Tugev lumesadu",
+            "hail": "Rahe",
+            "mist": "Uduvine",
+            "fog": "Udu"
+        }
+        return translations.get(eng_text.lower().strip(), eng_text).capitalize()
 
     def _extract_station_data(self, station_element):
         data = {}
@@ -138,7 +182,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 try: 
                     parsed_val = float(val)
                     if our_key == "sunshineduration":
-                        data[our_key] = round(parsed_val / 60.0, 1) # Convert minutes to hours
+                        data[our_key] = round(parsed_val / 60.0, 1)
                     else:
                         data[our_key] = parsed_val
                 except ValueError: 
@@ -146,7 +190,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                 
         phenom = station_element.findtext("phenomenon")
         if phenom and phenom.strip():
-            data["phenomenon"] = phenom.strip()
+            data["phenomenon"] = self._translate_phenomenon(phenom.strip())
 
         return data
 
@@ -316,19 +360,16 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         if not condition_text: return "cloudy"
         c = condition_text.lower()
         
-        # --- Check for precise multi-word phrases FIRST ---
         if "clear spells" in c or "peamiselt pilves" in c or "selgimistega" in c: return "partlycloudy"
         if "few clouds" in c or "vähene pilvisus" in c: return "partlycloudy"
         if "variable clouds" in c or "poolpilves" in c or "vahelduv pilvisus" in c: return "partlycloudy"
         
-        # Then check for precipitation
         if any(x in c for x in ["lörts", "sleet", "jäide", "glaze"]): return "snowy-rainy"
         if any(x in c for x in ["lumi", "snow", "snowfall"]): return "snowy"
         if any(x in c for x in ["vihm", "rain", "shower"]): return "pouring" if "heavy" in c or "tugev" in c else "rainy"
         if any(x in c for x in ["äike", "thunder", "hail", "rahe"]): return "lightning-rainy"
         if any(x in c for x in ["udu", "fog", "mist"]): return "fog"
         
-        # --- FINALLY, check for broad single words as a fallback ---
         if any(x in c for x in ["selge", "clear"]): return "clear"
         if any(x in c for x in ["pilves", "cloudy", "overcast"]): return "cloudy"
         

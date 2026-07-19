@@ -5,6 +5,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.const import EntityCategory
 
 from .const import DOMAIN
 
@@ -19,6 +20,7 @@ class IlmaprognoosStatusSensor(CoordinatorEntity, BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator):
         """Initialize the sensor."""
@@ -40,28 +42,25 @@ class IlmaprognoosStatusSensor(CoordinatorEntity, BinarySensorEntity):
 
     @property
     def available(self) -> bool:
-        """
-        --- NEW: Override availability ---
-        Always return True! We want the user to see the "Viga" (Problem) state
-        even if the main coordinator data fails to update.
-        """
+        """Always return True so the user can see the error state."""
         return True
 
     @property
     def is_on(self):
         """Return true if the coordinator has an error."""
-        # --- NEW: Use our custom, under-the-hood error flag ---
-        # 1. If HA officially thinks it failed (e.g. initial startup crash)
         if not self.coordinator.last_update_success:
             return True
-            
-        # 2. If HA thinks it succeeded (because of data persistence), 
-        #    but we logged a true API error internally.
         return getattr(self.coordinator, "api_fetch_error", False)
 
     @property
     def extra_state_attributes(self):
-        """Return other attributes."""
-        return {
+        """Return extra state attributes, including the exact error message."""
+        attrs = {
             "last_successful_update": getattr(self.coordinator, "last_update_success_timestamp", None)
         }
+        
+        # --- NEW: Show exact error message if an error occurred ---
+        if error_reason := getattr(self.coordinator, "last_error_reason", None):
+            attrs["veateade"] = error_reason
+            
+        return attrs
