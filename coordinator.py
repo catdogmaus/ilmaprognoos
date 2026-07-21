@@ -301,7 +301,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return[]
 
     def _process_sunshine_forecast(self, hourly_forecast: list) -> dict:
-        sunshine_map = {"selge": 60, "vähene pilvisus": 45, "pilves selgimistega": 30, "vahelduv pilvisus": 30}
+        sunshine_map = {"selge": 60, "vähene pilvisus": 50, "vahelduv pilvisus": 35, "pilves selgimistega": 20,}
         daily_sunshine_minutes = defaultdict(int)
         for hour in hourly_forecast:
             try:
@@ -339,10 +339,14 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _process_warnings(self, api_data):
         try:
-            warnings_string = api_data.get("warnings")
-            if not warnings_string or warnings_string == "[]": 
+            warnings_data = api_data.get("warnings")
+            if not warnings_data or warnings_data == "[]": 
                 return []
-            warnings_data = json.loads(warnings_string)
+            
+            # --- FIX: Handle both stringified JSON and direct lists ---
+            if isinstance(warnings_data, str):
+                warnings_data = json.loads(warnings_data)
+                
             final_warnings_list = []
             seen_descriptions = set()
             if isinstance(warnings_data, list):
@@ -352,7 +356,8 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
                         final_warnings_list.append(warning)
                         seen_descriptions.add(description)
             return final_warnings_list
-        except Exception: 
+        except Exception as e:
+            LOGGER.warning(f"Failed to process warnings: {e}")
             return []
         
     def _map_condition(self, condition_text):
