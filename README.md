@@ -53,5 +53,5 @@ Overall what exact weather sensors you get depends where you live so by default,
 
 ## Problems 
 
-As far as I know none!<br/>
-Dont ask for more sensors.   It is possible only to give data that is initially available.
+There is an issue with the HA front-end that prevents the HA companion app from displaying weather data correctly if it spans more than 24 hours. There is also an issue tracker for this, but it seems that no one from the HA team cares. <br/>
+If this seriously bothers you, I recommend using the "browser" version of HA dashboard that works correctly, or a third-party weather card like [Weather Forecast Card](https://github.com/troinine/ha-weather-forecast-card), [Clock Weather Card](https://github.com/pkissling/clock-weather-card) or similar as a workaround.
