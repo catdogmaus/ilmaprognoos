@@ -1,1 +1,30 @@
+name: Update Release Notes
 
+on:
+  release:
+    types: [published]
+
+jobs:
+  add-badges:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Prepend Badges to Release Body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const badges = `[![GitHub License](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE) [![GitHub Release](https://img.shields.io/github/v/release/catdogmaus/ilmaprognoos?color=blue)](https://github.com/catdogmaus/ilmaprognoos/releases)\n[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)<br/>\n\n<span class="badge-buymeacoffee">\n<a href="https://ko-fi.com/catdog58928" title="Support this project using Ko-Fi"><img src="https://img.shields.io/badge/Buy_me_coffee_and_biscuits-support-yellow.svg?style=for-the-badge&logo=kofi" alt="Buy Me A Coffee  button" /></a>\n</span><br/>\n\n`;
+
+            const currentBody = context.payload.release.body || '';
+
+            // Prevent duplicating badges if the release is published/edited again
+            if (!currentBody.includes('catdog58928')) {
+              const newBody = badges + currentBody;
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: context.payload.release.id,
+                body: newBody
+              });
+            }
