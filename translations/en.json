@@ -4,14 +4,14 @@
         "step": {
             "user": {
                 "title": "Asukoha seaded",
-                "description": "Kasuta automaatset asukoha seadistust. Kui teie Kodu tsooni koordinaadid HA-s on seadistatud soovitame kasutada automaatset asukoha seadistust. Kui mitte, soovitame seda kõigepealt teha ning alustada Ilmaprognoosi seadistamist pärast seda uuesti. Siin võib siiski ka loobuda automaatsest seadistusest ning jätkata käsitsi.",
+                "description": "Kasuta automaatset asukoha positsioneerimist. Kui teie Kodu tsooni koordinaadid HA on seadistatud soovitame kasutada automaatset asukoha positsioneerimist. Kui mitte, soovitame seda kõigepealt teha ning alustada Ilmaprognoosi seadistamist pärast seda uuesti. Siin võib ka loobuda automaatsest seadistusest ning jätkata käsitsi.",
                 "data": {
                     "use_home": "Kasuta kodu koordinaate"
                 }
             },
             "coords": {
                 "title": "Koordinaatide sisestamine",
-                "description": "Kopeeri https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/ oma asukoha koordinaadid aadressribalt siia. (nt. 59.432;24.744)",
+                "description": "Kopeeri ilmateenistus.ee asukohapõhise ilmaprognoosi aadressiribalt koordinaadid (nt. 59.432;24.744)",
                 "data": {
                     "coords": "Koordinaadid"
                 }
@@ -25,7 +25,7 @@
             },
             "primary_station": {
                 "title": "Vali peamine ilmajaam",
-                "description": "Vali esmane jaam mida kasutada. Kuvatakse teile lähemad jaamad. Soovitus: Nimekirjas esimesena kuvatakse kõige suurema andmehulgaga jaam. Jaamade kaardi ning täpsemat infot jaamade kohta võib leida siit https://www.ilmateenistus.ee/meist/vaatlusvork/ Kui juhtute elama kohas kus lähimad jaamad on nõnda kaugel, et nende kasutamine ei oma mõtet, saab siin valida ainult prognoosi. Sellisel juhul paraku kaotate osa kuvatavaid andmeid.",
+                "description": "Vali esmane jaam mida kasutada.Kuvatakse teile lähemad jaamad. Täpsemat infot jaamade kohta võib leida siit https://www.ilmateenistus.ee/meist/vaatlusvork/ Kui juhtute elama kohas kus lähima jaama kasutamine ei oma mõtet, saab valida ainult prognoosi. Sellisel juhul paraku kaotate osa kuvatavaid andmeid.",
                 "data": {
                     "primary_station": "Peamine jaam"
                 }
@@ -49,7 +49,8 @@
                 "data": {
                     "current_interval": "Hetkeilma uuendamise intervall (minutites)",
                     "forecast_interval": "Ilmaennustuse uuendamise intervall (minutites)",
-                    "warning_override": "Kuva hoiatuste kiht hetkeilma ikoonil"
+                    "warning_override": "Kuva hoiatus hetkeilma ikoonil",
+                    "warning_levels": "Kuvatavad hoiatuse tasemed"
                 }
             }
         }
