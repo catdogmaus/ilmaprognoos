@@ -6,14 +6,16 @@ from datetime import timedelta
 DOMAIN = "ilmaprognoos"
 LOGGER = logging.getLogger(__package__)
 
-DEFAULT_CURRENT_INTERVAL = timedelta(minutes=10)
+DEFAULT_CURRENT_INTERVAL = timedelta(minutes=15)
 DEFAULT_FORECAST_INTERVAL = timedelta(minutes=30)
 
-# --- RESTORED: Warning Override Constants ---
 CONF_WARNING_OVERRIDE = "warning_override"
 DEFAULT_WARNING_OVERRIDE = True
 
-# --- NEW URLS & IDs FOR XML LOGIC ---
+# --- NEW: Warning Level Constants ---
+CONF_WARNING_LEVELS = "warning_levels"
+DEFAULT_WARNING_LEVELS = ["1", "2", "3"]
+
 XML_OBSERVATIONS_URL = "https://www.ilmateenistus.ee/ilma_andmed/xml/observations.php"
 FORECAST_URL_FORMAT = "https://www.ilmateenistus.ee/wp-content/themes/ilm2020/meteogram.php/?coordinates={coords}"
 

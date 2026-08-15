@@ -9,10 +9,10 @@ import requests
 import xml.etree.ElementTree as ET
 from homeassistant.util import slugify
 
-# --- THE FIX: Removed LOCATIONS and MANUAL_LOCATION_ID from imports ---
 from .const import (
     DOMAIN, XML_OBSERVATIONS_URL, HEADERS, FORECAST_ONLY_ID, NO_SECONDARY_ID,
-    DEFAULT_CURRENT_INTERVAL, DEFAULT_FORECAST_INTERVAL, CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE
+    DEFAULT_CURRENT_INTERVAL, DEFAULT_FORECAST_INTERVAL, CONF_WARNING_OVERRIDE, 
+    DEFAULT_WARNING_OVERRIDE, CONF_WARNING_LEVELS, DEFAULT_WARNING_LEVELS
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -82,20 +82,15 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     
                     if name and s_lat_text and s_lon_text:
                         dist = haversine(user_lat, user_lon, float(s_lat_text), float(s_lon_text))
-                        
-                        # Count how many data tags have actual text in them
                         data_count = sum(1 for child in station if child.text and child.text.strip() and child.tag not in ['name', 'latitude', 'longitude', 'wmocode'])
                         
-                        # Only include the station in our list if it actually transmits data
                         if data_count > 0:
                             stations.append({'name': name, 'dist': dist, 'data_count': data_count})
                 
-                # Sort by distance, take top 5
                 stations.sort(key=lambda x: x['dist'])
                 top_5 = stations[:5]
                 
                 if top_5:
-                    # Prefer the richest station among the closest 5
                     richest_station = max(top_5, key=lambda x: x['data_count'])
                     top_5.remove(richest_station)
                     top_5.insert(0, richest_station)
@@ -151,10 +146,13 @@ class IlmaprognoosConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle an options flow for Ilmaprognoos."""
+
     def __init__(self) -> None:
         pass
 
     async def async_step_init(self, user_input=None):
+        """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
@@ -164,6 +162,7 @@ class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
 
         forecast_interval = self.config_entry.options.get("forecast_interval", DEFAULT_FORECAST_INTERVAL.seconds // 60)
         warning_override = self.config_entry.options.get(CONF_WARNING_OVERRIDE, DEFAULT_WARNING_OVERRIDE)
+        warning_levels = self.config_entry.options.get(CONF_WARNING_LEVELS, DEFAULT_WARNING_LEVELS)
 
         schema_fields = {}
 
@@ -178,4 +177,17 @@ class IlmaprognoosOptionsFlowHandler(config_entries.OptionsFlow):
         )
         schema_fields[vol.Required(CONF_WARNING_OVERRIDE, default=warning_override)] = selector.BooleanSelector()
         
+        # --- NEW: Checkbox list selector for warning levels ---
+        schema_fields[vol.Required(CONF_WARNING_LEVELS, default=warning_levels)] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    {"value": "1", "label": "1. tase (kollane)"},
+                    {"value": "2", "label": "2. tase (oranž)"},
+                    {"value": "3", "label": "3. tase (punane)"}
+                ],
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST
+            )
+        )
+
         return self.async_show_form(step_id="init", data_schema=vol.Schema(schema_fields))

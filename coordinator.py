@@ -16,7 +16,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     DOMAIN, LOGGER, XML_OBSERVATIONS_URL, FORECAST_URL_FORMAT,
     HEADERS, DEFAULT_CURRENT_INTERVAL, DEFAULT_FORECAST_INTERVAL,
-    FORECAST_ONLY_ID, NO_SECONDARY_ID
+    FORECAST_ONLY_ID, NO_SECONDARY_ID, CONF_WARNING_LEVELS, DEFAULT_WARNING_LEVELS
 )
 
 def fetch_data_sync(xml_url, forecast_url, headers):
@@ -55,7 +55,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
         self.status_entity_id = f"binary_sensor.{slug}_uuendamise_staatus"
         
         self.api_fetch_error = False
-        # --- NEW: Store the last error message ---
         self.last_error_reason = None
         
         super().__init__(hass, LOGGER, name=DOMAIN)
@@ -100,7 +99,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
 
             self.hass.bus.async_fire("logbook_entry", {"message": "Uuendamine õnnestus", "entity_id": self.status_entity_id, "domain": DOMAIN})
 
-            # Clear error status on successful fetch
             self.api_fetch_error = False
             self.last_error_reason = None
 
@@ -115,7 +113,6 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             }
         except Exception as err:
             self.api_fetch_error = True
-            # --- FIX: Store and format detailed error message ---
             self.last_error_reason = str(err)
             
             self.hass.bus.async_fire("logbook_entry", {
@@ -301,7 +298,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return[]
 
     def _process_sunshine_forecast(self, hourly_forecast: list) -> dict:
-        sunshine_map = {"selge": 60, "vähene pilvisus": 50, "vahelduv pilvisus": 35, "pilves selgimistega": 20,}
+        sunshine_map = {"selge": 60, "vähene pilvisus": 50, "vahelduv pilvisus": 30, "pilves selgimistega": 15}
         daily_sunshine_minutes = defaultdict(int)
         for hour in hourly_forecast:
             try:
@@ -339,29 +336,45 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _process_warnings(self, api_data):
         try:
-            warnings_data = api_data.get("warnings")
-            if not warnings_data or warnings_data == "[]": 
+            warnings_raw = api_data.get("warnings")
+            if not warnings_raw or warnings_raw == "[]": 
                 return []
             
-            # --- FIX: Handle both stringified JSON and direct lists ---
-            if isinstance(warnings_data, str):
-                warnings_data = json.loads(warnings_data)
-                
+            # --- FIX: Handle pre-parsed JSON list OR stringified JSON ---
+            if isinstance(warnings_raw, str):
+                warnings_data = json.loads(warnings_raw)
+            else:
+                warnings_data = warnings_raw
+
+            selected_levels = [
+                str(lvl) for lvl in self.config_entry.options.get(
+                    CONF_WARNING_LEVELS, DEFAULT_WARNING_LEVELS
+                )
+            ]
+            
             final_warnings_list = []
             seen_descriptions = set()
             if isinstance(warnings_data, list):
                 for warning in warnings_data:
-                    description = warning.get("description")
-                    if description and description not in seen_descriptions:
-                        final_warnings_list.append(warning)
-                        seen_descriptions.add(description)
+                    raw_level = warning.get("level")
+                    if raw_level is None:
+                        lvl_str = warning.get("warning_level_eng", "") or warning.get("warning_level_est", "")
+                        digits = [c for c in str(lvl_str) if c.isdigit()]
+                        level_str = digits[0] if digits else "1"
+                    else:
+                        level_str = str(raw_level)
+
+                    if level_str in selected_levels:
+                        description = warning.get("description")
+                        if description and description not in seen_descriptions:
+                            final_warnings_list.append(warning)
+                            seen_descriptions.add(description)
             return final_warnings_list
         except Exception as e:
             LOGGER.warning(f"Failed to process warnings: {e}")
             return []
         
     def _map_condition(self, condition_text):
-        """Map Estonian/English phenomenon string from XML/Forecast to HA condition."""
         if not condition_text: return "cloudy"
         c = condition_text.lower()
         
