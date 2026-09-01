@@ -36,11 +36,16 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
     _attr_attribution = "Andmed: ilmateenistus.ee"
 
     def __init__(self, coordinator):
+        """Initialize the weather entity."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_weather"
         
         coords = coordinator.config_entry.data.get("coords")
-        config_url = f"https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/?coordinates={coords}" if coords else "https://www.ilmateenistus.ee"
+        
+        if coords:
+            config_url = f"https://www.ilmateenistus.ee/ilm/prognoosid/asukoha-prognoos/?coordinates={coords}"
+        else:
+            config_url = "https://www.ilmateenistus.ee"
 
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.config_entry.entry_id)},
@@ -50,27 +55,50 @@ class IlmaprognoosWeather(CoordinatorEntity, WeatherEntity):
             "model": "Keskkonnaagentuur & ilmateenistus.ee",
             "configuration_url": config_url,
         }
+
         self._attr_supported_features = (WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY)
 
     async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
         self._handle_coordinator_update()
 
     def _get_sun_aware_condition(self, condition: str, timestamp: datetime) -> str:
-        if condition == "clear": return "sunny" if is_up(self.hass, timestamp) else "clear-night"
+        """Return sunny or clear-night based on sun state at a given time."""
+        if condition == "clear":
+            return "sunny" if is_up(self.hass, timestamp) else "clear-night"
         return condition
 
+    # --- FIX: BILINGUAL & PRECISE CONDITION MAPPER ---
     def _map_xml_condition(self, condition_text):
-        cond = condition_text.lower()
-        if "clear" in cond: return "clear"
-        if "few clouds" in cond or "variable clouds" in cond or "cloudy with clear spells" in cond: return "partlycloudy"
-        if "overcast" in cond: return "cloudy"
-        if "snow" in cond or "snowfall" in cond: return "snowy"
-        if "shower" in cond and "snow" not in cond: return "pouring" if "heavy" in cond else "rainy"
-        if "rain" in cond: return "pouring" if "heavy" in cond else "rainy"
-        if "glaze" in cond or "sleet" in cond: return "snowy-rainy"
-        if "hail" in cond: return "hail"
-        if "mist" in cond or "fog" in cond: return "fog"
+        """Map Estonian/English phenomenon string from XML to HA condition."""
+        if not condition_text:
+            return "cloudy"
+        c = condition_text.lower()
+        
+        # 1. Partly cloudy variants
+        if any(x in c for x in ["selgimistega", "peamiselt pilves", "clear spells"]): return "partlycloudy"
+        if any(x in c for x in ["vähene", "few clouds"]): return "partlycloudy"
+        if any(x in c for x in ["vahelduv", "poolpilves", "variable clouds"]): return "partlycloudy"
+        
+        # 2. Wintry precipitation & glaze
+        if any(x in c for x in ["lörts", "sleet", "jäide", "glaze"]): return "snowy-rainy"
+        if any(x in c for x in ["lumi", "hooglumi", "lumesadu", "snow"]): return "snowy"
+        
+        # 3. Thunderstorms & Hail
+        if any(x in c for x in ["äike", "thunder", "rahe", "hail"]): return "lightning-rainy"
+        
+        # 4. Rain & Showers (Distinguishes between pouring and regular rain)
+        if any(x in c for x in ["vihm", "hoovihm", "sadu", "rain", "shower"]):
+            return "pouring" if any(h in c for h in ["tugev", "heavy"]) else "rainy"
+            
+        # 5. Fog & Mist
+        if any(x in c for x in ["udu", "uduvine", "fog", "mist"]): return "fog"
+        
+        # 6. Basic conditions
+        if any(x in c for x in ["selge", "clear"]): return "clear"
+        if any(x in c for x in ["pilves", "cloudy", "overcast"]): return "cloudy"
+        
         return "cloudy"
 
     @property
