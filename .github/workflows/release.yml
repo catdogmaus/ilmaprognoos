@@ -13,7 +13,7 @@ jobs:
     steps:
       # Step 1: Checkout the repo code
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -47,7 +47,7 @@ jobs:
 
       # Step 3: Your existing step to prepend badges to the release body
       - name: Prepend Badges to Release Body
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const badges = `[![GitHub License](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE) [![GitHub Release](https://img.shields.io/github/v/release/catdogmaus/ilmaprognoos?color=blue)](https://github.com/catdogmaus/ilmaprognoos/releases)\n[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)<br/>\n\n<span class="badge-buymeacoffee">\n<a href="https://ko-fi.com/catdog58928" title="Support this project using Ko-Fi"><img src="https://img.shields.io/badge/Buy_me_coffee_and_biscuits-support-yellow.svg?style=for-the-badge&logo=kofi" alt="Buy Me A Coffee  button" /></a>\n</span><br/>\n\n`;
