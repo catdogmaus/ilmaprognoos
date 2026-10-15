@@ -1,17 +1,53 @@
-name: Update Release Notes
+name: Update Release Notes & Manifest
 
 on:
   release:
     types: [published]
 
 jobs:
-  add-badges:
+  update-release-and-manifest:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
+      # Step 1: Checkout the repo code
+      - name: Checkout Code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Step 2: Update manifest.json version
+      - name: Update manifest.json version
+        run: |
+          # 1. Strip 'v' from tag name if present (e.g., 'v1.2.0' -> '1.2.0')
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+
+          # Path to manifest.json at repo root
+          MANIFEST_PATH="manifest.json"
+
+          # 2. Update version key in manifest.json using jq
+          jq --arg v "$VERSION" '.version = $v' "$MANIFEST_PATH" > tmp.json && mv tmp.json "$MANIFEST_PATH"
+
+          # 3. Configure git bot
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 4. If manifest changed, commit to main and move the release tag
+          if ! git diff --quiet "$MANIFEST_PATH"; then
+            git add "$MANIFEST_PATH"
+            git commit -m "bump: manifest version to $VERSION [skip ci]"
+            git push origin HEAD:main
+
+            # Re-tag the new commit so HACS gets the updated manifest
+            git tag -f "$TAG"
+            git push origin "$TAG" --force
+          fi
+
+      # Step 3: Your existing step to prepend badges to the release body
       - name: Prepend Badges to Release Body
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const badges = `[![GitHub License](https://img.shields.io/github/license/catdogmaus/ilmaprognoos?color=green)](https://github.com/catdogmaus/ilmaprognoos/blob/main/LICENSE) [![GitHub Release](https://img.shields.io/github/v/release/catdogmaus/ilmaprognoos?color=blue)](https://github.com/catdogmaus/ilmaprognoos/releases)\n[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)<br/>\n\n<span class="badge-buymeacoffee">\n<a href="https://ko-fi.com/catdog58928" title="Support this project using Ko-Fi"><img src="https://img.shields.io/badge/Buy_me_coffee_and_biscuits-support-yellow.svg?style=for-the-badge&logo=kofi" alt="Buy Me A Coffee  button" /></a>\n</span><br/>\n\n`;
