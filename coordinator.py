@@ -298,7 +298,7 @@ class IlmaprognoosDataUpdateCoordinator(DataUpdateCoordinator):
             return[]
 
     def _process_sunshine_forecast(self, hourly_forecast: list) -> dict:
-        sunshine_map = {"selge": 60, "vähene pilvisus": 50, "vahelduv pilvisus": 30, "pilves selgimistega": 15}
+        sunshine_map = {'selge': 57, 'vähene pilvisus': 45, 'vahelduv pilvisus': 30, 'poolpilves': 30, 'pilves selgimistega': 15, 'peamiselt pilves': 15, 'nõrk hoogvihm': 10, 'mõõdukas hoogvihm': 5, 'nõrk hooglumi': 10}
         daily_sunshine_minutes = defaultdict(int)
         for hour in hourly_forecast:
             try:
